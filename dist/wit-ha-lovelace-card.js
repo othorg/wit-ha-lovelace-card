@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.12";
+const CARD_VERSION = "0.1.13";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -11,6 +11,8 @@ const DEFAULT_GEOMETRY = {
 const DEFAULT_DISPLAY = {
   max_tilt_deg: 5,
   level_tolerance_cm: 0.1,
+  dot_boundary_radius_ratio: 0.112,
+  dot_size_ratio: 0.068,
   text_size_mode: "auto",
   show_temperature: true,
   show_battery: true,
@@ -50,6 +52,8 @@ const I18N = {
     max_tilt_deg: "Max Tilt fuer Punkt (Grad)",
     level_tolerance_cm: "Nivellier-Toleranz (cm)",
     text_size_mode: "Schriftgroesse",
+    dot_boundary_radius_ratio: "Bubble-Radius (Verhaeltnis)",
+    dot_size_ratio: "Punktgroesse (Verhaeltnis)",
     text_size_auto: "Auto",
     text_size_small: "Klein",
     text_size_medium: "Mittel",
@@ -84,6 +88,8 @@ const I18N = {
     max_tilt_deg: "Max tilt for dot (deg)",
     level_tolerance_cm: "Level tolerance (cm)",
     text_size_mode: "Text size",
+    dot_boundary_radius_ratio: "Bubble radius (ratio)",
+    dot_size_ratio: "Dot size (ratio)",
     text_size_auto: "Auto",
     text_size_small: "Small",
     text_size_medium: "Medium",
@@ -107,6 +113,8 @@ const NUMBER_FIELDS = new Set([
   "track_rear_mm",
   "max_tilt_deg",
   "level_tolerance_cm",
+  "dot_boundary_radius_ratio",
+  "dot_size_ratio",
 ]);
 
 const TEXT_SIZE_MODES = new Set(["auto", "small", "medium", "large"]);
@@ -120,8 +128,6 @@ const TEXT_SIZE_MODE_FACTORS = {
 const MAX_LEVELING_TILT_DEG = 30;
 const DOT_CENTER_X_RATIO = 0.5;
 const DOT_CENTER_Y_RATIO = 0.495;
-const DOT_BOUNDARY_RADIUS_RATIO = 0.112;
-const DOT_SIZE_RATIO = 0.068;
 
 function detectScriptBasePath() {
   if (typeof document === "undefined") return "";
@@ -223,6 +229,18 @@ function normalizeConfig(config) {
 
   normalized.display.max_tilt_deg = clampNumber(normalized.display.max_tilt_deg, 1, 30, DEFAULT_DISPLAY.max_tilt_deg);
   normalized.display.level_tolerance_cm = clampNumber(normalized.display.level_tolerance_cm, 0, 20, DEFAULT_DISPLAY.level_tolerance_cm);
+  normalized.display.dot_boundary_radius_ratio = clampNumber(
+    normalized.display.dot_boundary_radius_ratio,
+    0.04,
+    0.2,
+    DEFAULT_DISPLAY.dot_boundary_radius_ratio,
+  );
+  normalized.display.dot_size_ratio = clampNumber(
+    normalized.display.dot_size_ratio,
+    0.02,
+    0.16,
+    DEFAULT_DISPLAY.dot_size_ratio,
+  );
   normalized.display.text_size_mode = normalizeTextSizeMode(normalized.display.text_size_mode);
   normalized.display.show_temperature = Boolean(normalized.display.show_temperature);
   normalized.display.show_battery = Boolean(normalized.display.show_battery);
@@ -325,10 +343,22 @@ function projectToUnitCircle(x, y) {
   return { x: nx / mag, y: ny / mag };
 }
 
-function computeDotGeometry(width) {
-  const dotSizePx = clampInt(width * DOT_SIZE_RATIO, 20, width * 0.14);
+function computeDotGeometry(width, display = DEFAULT_DISPLAY) {
+  const boundaryRatio = clampNumber(
+    display?.dot_boundary_radius_ratio,
+    0.04,
+    0.2,
+    DEFAULT_DISPLAY.dot_boundary_radius_ratio,
+  );
+  const dotSizeRatio = clampNumber(
+    display?.dot_size_ratio,
+    0.02,
+    0.16,
+    DEFAULT_DISPLAY.dot_size_ratio,
+  );
+  const dotSizePx = clampInt(width * dotSizeRatio, 20, width * 0.14);
   const boundaryRadiusPx = clampInt(
-    width * DOT_BOUNDARY_RADIUS_RATIO,
+    width * boundaryRatio,
     Math.ceil(dotSizePx / 2) + 4,
     width * 0.2,
   );
@@ -786,7 +816,7 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.pitch.style.maxWidth = `${pitchMaxWidthPx}px`;
     this._nodes.roll.style.maxWidth = `${rollMaxWidthPx}px`;
 
-    const dotGeometry = computeDotGeometry(width);
+    const dotGeometry = computeDotGeometry(width, this._config.display);
     const dotSizePx = dotGeometry.dotSizePx;
     const bubbleZoneSizePx = dotGeometry.bubbleZoneSizePx;
     const dotTrackRadiusPx = dotGeometry.dotTrackRadiusPx;
@@ -978,6 +1008,10 @@ class WitHaLovelaceCardEditor extends HTMLElement {
               <option value="medium" ${c.display.text_size_mode === "medium" ? "selected" : ""}>${escapeHtml(this._t("text_size_medium"))}</option>
               <option value="large" ${c.display.text_size_mode === "large" ? "selected" : ""}>${escapeHtml(this._t("text_size_large"))}</option>
             </select>
+          </div>
+          <div class="row inline">
+            <div><label>${escapeHtml(this._t("dot_boundary_radius_ratio"))}</label><input id="dot_boundary_radius_ratio" data-group="display" type="number" step="0.001" value="${escapeHtml(c.display.dot_boundary_radius_ratio)}" /></div>
+            <div><label>${escapeHtml(this._t("dot_size_ratio"))}</label><input id="dot_size_ratio" data-group="display" type="number" step="0.001" value="${escapeHtml(c.display.dot_size_ratio)}" /></div>
           </div>
           <label class="check"><input id="show_temperature" data-group="display" type="checkbox" ${c.display.show_temperature ? "checked" : ""} /> ${escapeHtml(this._t("show_temperature"))}</label>
           <label class="check"><input id="show_battery" data-group="display" type="checkbox" ${c.display.show_battery ? "checked" : ""} /> ${escapeHtml(this._t("show_battery"))}</label>

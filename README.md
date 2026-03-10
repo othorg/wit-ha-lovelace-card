@@ -24,6 +24,8 @@ Planned next step: dedicated Home Assistant integration for WT901WIFI/WIT data s
 - Configurable display behavior:
   - max tilt range for center dot
   - level tolerance
+  - center bubble radius ratio (`dot_boundary_radius_ratio`)
+  - center dot size ratio (`dot_size_ratio`)
   - text size mode (`auto`, `small`, `medium`, `large`)
   - optional temperature/battery/corner labels
 - Orientation correction options:
@@ -72,6 +74,8 @@ geometry:
 display:
   max_tilt_deg: 5
   level_tolerance_cm: 0.1
+  dot_boundary_radius_ratio: 0.112
+  dot_size_ratio: 0.068
   text_size_mode: auto
 orientation:
   swap_axes: false

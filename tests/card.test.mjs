@@ -122,6 +122,8 @@ test("normalizeConfig applies defaults", () => {
   assert.equal(cfg.entities.pitch, "sensor.easylevelrv_neigung_x");
   assert.equal(cfg.geometry.wheelbase_mm, 2000);
   assert.equal(cfg.display.max_tilt_deg, 5);
+  assert.equal(cfg.display.dot_boundary_radius_ratio, 0.112);
+  assert.equal(cfg.display.dot_size_ratio, 0.068);
   assert.equal(cfg.display.text_size_mode, "auto");
   assert.equal(cfg.orientation.swap_axes, false);
 });
@@ -190,9 +192,26 @@ test("projectToUnitCircle keeps vectors inside unit circle", () => {
 
 test("computeDotGeometry keeps max dot edge on boundary circle", () => {
   const runtime = loadRuntime();
-  const geom = runtime.api.computeDotGeometry(550);
+  const geom = runtime.api.computeDotGeometry(550, {
+    dot_boundary_radius_ratio: 0.112,
+    dot_size_ratio: 0.068,
+  });
   assert.ok(geom.dotTrackRadiusPx >= 0);
   assert.equal(geom.boundaryRadiusPx - geom.dotSizePx / 2, geom.dotTrackRadiusPx);
+});
+
+test("computeDotGeometry respects user display ratios", () => {
+  const runtime = loadRuntime();
+  const small = runtime.api.computeDotGeometry(550, {
+    dot_boundary_radius_ratio: 0.08,
+    dot_size_ratio: 0.05,
+  });
+  const large = runtime.api.computeDotGeometry(550, {
+    dot_boundary_radius_ratio: 0.14,
+    dot_size_ratio: 0.08,
+  });
+  assert.ok(large.boundaryRadiusPx > small.boundaryRadiusPx);
+  assert.ok(large.dotSizePx > small.dotSizePx);
 });
 
 test("resolvePitchRoll respects swap and inversion flags", () => {

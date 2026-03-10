@@ -9,6 +9,20 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.13] - 2026-03-10
+
+### Added
+- New configurable display parameters in card config/editor:
+  - `display.dot_boundary_radius_ratio`
+  - `display.dot_size_ratio`
+- Added editor inputs for both parameters under the Display section.
+
+### Changed
+- Dot geometry now uses per-card display config values (with clamped safety limits) instead of hardcoded constants.
+
+### Tests
+- Extended tests for default/override behavior of the new bubble ratio parameters.
+
 ## [0.1.12] - 2026-03-10
 
 ### Added

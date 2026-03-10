@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.8";
+const CARD_VERSION = "0.1.9";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,

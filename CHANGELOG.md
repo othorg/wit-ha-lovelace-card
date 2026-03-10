@@ -9,6 +9,12 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.9] - 2026-03-10
+
+### Changed
+- Release packaging update to ensure HACS picks up the latest card build reliably.
+- No functional code changes compared to `0.1.8` bubble behavior.
+
 ## [0.1.8] - 2026-03-10
 
 ### Changed

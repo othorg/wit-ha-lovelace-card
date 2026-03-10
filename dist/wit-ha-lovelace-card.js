@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.1.1";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -867,9 +867,9 @@ if (!customElements.get("wit-ha-lovelace-card-editor")) {
 }
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === `custom:${CARD_TYPE}`)) {
+if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
   window.customCards.push({
-    type: `custom:${CARD_TYPE}`,
+    type: CARD_TYPE,
     name: CARD_NAME,
     description: "RV leveling visualization card for WIT tilt sensors.",
     preview: true,

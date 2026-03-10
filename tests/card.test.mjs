@@ -187,5 +187,5 @@ test("readNumericState returns null for unavailable", () => {
 test("custom card metadata is registered", () => {
   const runtime = loadRuntime();
   assert.equal(runtime.customCards.length, 1);
-  assert.equal(runtime.customCards[0].type, "custom:wit-ha-lovelace-card");
+  assert.equal(runtime.customCards[0].type, "wit-ha-lovelace-card");
 });

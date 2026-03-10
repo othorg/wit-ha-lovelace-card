@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.4";
+const CARD_VERSION = "0.1.5";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -116,6 +116,8 @@ const TEXT_SIZE_MODE_FACTORS = {
   medium: 1.0,
   large: 1.14,
 };
+
+const MAX_LEVELING_TILT_DEG = 30;
 
 function detectScriptBasePath() {
   if (typeof document === "undefined") return "";
@@ -305,6 +307,10 @@ function computeLeveling(pitchDeg, rollDeg, geometry) {
   };
 }
 
+function clampTiltForLeveling(value) {
+  return clampNumber(value, -MAX_LEVELING_TILT_DEG, MAX_LEVELING_TILT_DEG, 0);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -451,7 +457,9 @@ class WitHaLovelaceCard extends HTMLElement {
 
   _buildModel() {
     const pr = resolvePitchRoll(this._hass, this._config);
-    const level = pr.valid ? computeLeveling(pr.pitch, pr.roll, this._config.geometry) : null;
+    const safePitch = pr.valid ? clampTiltForLeveling(pr.pitch) : null;
+    const safeRoll = pr.valid ? clampTiltForLeveling(pr.roll) : null;
+    const level = pr.valid ? computeLeveling(safePitch, safeRoll, this._config.geometry) : null;
     const maxTilt = this._config.display.max_tilt_deg || DEFAULT_DISPLAY.max_tilt_deg;
 
     const clamp = (v) => Math.max(-1, Math.min(1, v));
@@ -696,6 +704,9 @@ class WitHaLovelaceCard extends HTMLElement {
     const infoPx = clampInt(14 * scale, 10, Math.min(width * 0.05, height * 0.025));
     const anglePx = clampInt(26 * scale, 15, Math.min(width * 0.066, height * 0.034));
     const cornerPx = clampInt(16 * scale, 10, Math.min(width * 0.034, height * 0.018));
+    const levelMarkerPx = clampInt(46 * scale, 18, Math.min(width * 0.13, height * 0.07));
+    const raiseHalfPx = clampInt(levelMarkerPx * 0.4, 8, Math.max(12, Math.round(width * 0.055)));
+    const raiseHeightPx = clampInt(levelMarkerPx * 0.72, 12, Math.max(18, Math.round(height * 0.04)));
 
     const titleMaxWidthPx = clampInt(width * 0.78, 160, width * 0.92);
     const topMaxWidthPx = clampInt(width * 0.32, 80, width * 0.38);
@@ -740,6 +751,27 @@ class WitHaLovelaceCard extends HTMLElement {
     const updateCorner = (markerNode, valueNode, corner) => {
       markerNode.className = "marker";
       markerNode.classList.add(corner.levelOk ? "level" : "raise");
+      if (corner.levelOk) {
+        markerNode.style.width = `${levelMarkerPx}px`;
+        markerNode.style.height = `${levelMarkerPx}px`;
+        markerNode.style.aspectRatio = "1 / 1";
+        markerNode.style.borderRadius = "50%";
+        markerNode.style.background = "#00c853";
+        markerNode.style.boxShadow = "0 0 8px rgba(0,0,0,0.45)";
+        markerNode.style.borderLeft = "0";
+        markerNode.style.borderRight = "0";
+        markerNode.style.borderBottom = "0";
+      } else {
+        markerNode.style.width = "0";
+        markerNode.style.height = "0";
+        markerNode.style.aspectRatio = "auto";
+        markerNode.style.borderRadius = "0";
+        markerNode.style.background = "transparent";
+        markerNode.style.boxShadow = "none";
+        markerNode.style.borderLeft = `${raiseHalfPx}px solid transparent`;
+        markerNode.style.borderRight = `${raiseHalfPx}px solid transparent`;
+        markerNode.style.borderBottom = `${raiseHeightPx}px solid #ff1744`;
+      }
       if (this._config.display.show_corner_values) {
         valueNode.hidden = false;
         const value = corner.raise === null ? 0 : corner.raise;
@@ -975,6 +1007,7 @@ window.__WIT_CARD_TEST_API = {
   CARD_VERSION,
   normalizeConfig,
   computeLeveling,
+  clampTiltForLeveling,
   resolvePitchRoll,
   readNumericState,
   clampNumber,

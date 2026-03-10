@@ -9,6 +9,17 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.5] - 2026-03-10
+
+### Fixed
+- Stabilized corner marker rendering under fast sensor movement:
+  - removed reliance on fixed `vw` triangle sizing by applying runtime pixel-based marker sizing per card viewport.
+  - added robust marker style reset per update (prevents malformed marker carry-over states).
+- Added tilt safety clamp (`±30°`) for leveling calculations to avoid outlier spikes when sensor values jump during motion.
+
+### Tests
+- Added test coverage for tilt clamp behavior used by the stabilization path.
+
 ## [0.1.4] - 2026-03-10
 
 ### Added

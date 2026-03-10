@@ -171,6 +171,13 @@ test("computeLeveling keeps diagonal raise mapping for YAML parity", () => {
   assert.equal(result.raise_rr, Math.max(0, result.z_fl - minZ));
 });
 
+test("clampTiltForLeveling caps extreme angles for stable rendering", () => {
+  const runtime = loadRuntime();
+  assert.equal(runtime.api.clampTiltForLeveling(5), 5);
+  assert.equal(runtime.api.clampTiltForLeveling(120), 30);
+  assert.equal(runtime.api.clampTiltForLeveling(-120), -30);
+});
+
 test("resolvePitchRoll respects swap and inversion flags", () => {
   const runtime = loadRuntime();
   const hass = {

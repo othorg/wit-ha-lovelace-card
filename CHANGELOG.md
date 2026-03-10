@@ -9,6 +9,16 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.3] - 2026-03-10
+
+### Fixed
+- Improved small-screen rendering and readability:
+  - reduced and dynamically scaled overlay font sizes
+  - prevented label line wrapping (`white-space: nowrap`)
+  - constrained title width with ellipsis behavior
+  - improved right-side roll label alignment
+- Stabilized corner value text sizing for narrow card widths.
+
 ## [0.1.2] - 2026-03-10
 
 ### Fixed

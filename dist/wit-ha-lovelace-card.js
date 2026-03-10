@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.2";
+const CARD_VERSION = "0.1.3";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -501,31 +501,37 @@ class WitHaLovelaceCard extends HTMLElement {
           text-shadow: 0 0 4px rgba(255,255,255,0.92);
           font-family: Arial, sans-serif;
           z-index: 2;
+          white-space: nowrap;
         }
         .clickable { cursor: pointer; }
-        .temp { top: 2%; left: 7%; font-size: clamp(14px, 2.7vw, 22px); }
-        .batt { top: 2%; right: 7%; font-size: clamp(14px, 2.7vw, 22px); }
+        .temp { top: 2%; left: 7%; font-size: 14px; }
+        .batt { top: 2%; right: 7%; font-size: 14px; }
         .title {
           top: 8%;
           left: 50%;
           transform: translateX(-50%);
-          font-size: clamp(15px, 4.8vw, 40px);
+          font-size: 18px;
           font-weight: 500;
           white-space: nowrap;
+          max-width: 92%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-align: center;
         }
         .pitch {
           bottom: 8%;
           left: 51%;
           transform: translateX(-50%);
-          font-size: clamp(26px, 8.2vw, 54px);
+          font-size: 26px;
           font-weight: 500;
         }
         .roll {
           right: 5%;
           top: 50%;
           transform: translateY(-50%);
-          font-size: clamp(26px, 8.2vw, 54px);
+          font-size: 26px;
           font-weight: 500;
+          text-align: right;
         }
         .dot {
           position: absolute;
@@ -570,11 +576,12 @@ class WitHaLovelaceCard extends HTMLElement {
         }
         .corner-value {
           position: absolute;
-          font-size: clamp(16px, 5vw, 34px);
+          font-size: 16px;
           font-weight: 500;
           color: #111;
           text-shadow: 0 0 4px rgba(255,255,255,0.92);
           z-index: 2;
+          white-space: nowrap;
         }
         .cv-fl { top: 31%; left: 18%; transform: translate(-50%, -50%); }
         .cv-fr { top: 31%; right: 18%; transform: translate(50%, -50%); }
@@ -636,6 +643,8 @@ class WitHaLovelaceCard extends HTMLElement {
 
     const title = this._config.title || this._t("default_title");
     const model = this._buildModel();
+    const width = this._nodes.wrapper?.clientWidth || this._nodes.wrapper?.offsetWidth || 550;
+    const scale = Math.max(0.56, Math.min(1.0, width / 550));
 
     const imageUrl = this._resolveImageUrl();
     if (this._nodes.img?.dataset.src !== imageUrl) {
@@ -645,16 +654,21 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.img.alt = this._t("image_alt");
 
     this._nodes.title.textContent = title;
+    this._nodes.title.style.fontSize = `${Math.round(18 * scale)}px`;
 
     this._nodes.temp.hidden = !this._config.display.show_temperature;
     this._nodes.batt.hidden = !this._config.display.show_battery;
     this._nodes.temp.textContent = model.tempText;
     this._nodes.batt.textContent = model.battText;
+    this._nodes.temp.style.fontSize = `${Math.round(14 * scale)}px`;
+    this._nodes.batt.style.fontSize = `${Math.round(14 * scale)}px`;
 
     const pitchText = model.valid ? `${fmtOne(model.pitch)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
     const rollText = model.valid ? `${fmtOne(model.roll)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
     this._nodes.pitch.textContent = pitchText;
     this._nodes.roll.textContent = rollText;
+    this._nodes.pitch.style.fontSize = `${Math.round(26 * scale)}px`;
+    this._nodes.roll.style.fontSize = `${Math.round(26 * scale)}px`;
 
     const dotX = 50 + model.dotNx * 12;
     const dotY = 49 + model.dotNy * 12;
@@ -668,6 +682,7 @@ class WitHaLovelaceCard extends HTMLElement {
         valueNode.hidden = false;
         const value = corner.raise === null ? 0 : corner.raise;
         valueNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
+        valueNode.style.fontSize = `${Math.round(16 * scale)}px`;
       } else {
         valueNode.hidden = true;
       }

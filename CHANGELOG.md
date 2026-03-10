@@ -9,6 +9,15 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.11] - 2026-03-10
+
+### Changed
+- Increased center bubble movement range to better utilize the light-green center circle.
+- Rebalanced dot geometry:
+  - larger boundary radius (`DOT_BOUNDARY_RADIUS_RATIO`)
+  - slightly smaller red dot size (`DOT_SIZE_RATIO`)
+- Keeps the same edge-safe rule: at max deflection, the red dot stays inside the boundary circle.
+
 ## [0.1.10] - 2026-03-10
 
 ### Changed

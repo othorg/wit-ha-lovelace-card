@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.10";
+const CARD_VERSION = "0.1.11";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -120,8 +120,8 @@ const TEXT_SIZE_MODE_FACTORS = {
 const MAX_LEVELING_TILT_DEG = 30;
 const DOT_CENTER_X_RATIO = 0.5;
 const DOT_CENTER_Y_RATIO = 0.495;
-const DOT_BOUNDARY_RADIUS_RATIO = 0.082;
-const DOT_SIZE_RATIO = 0.078;
+const DOT_BOUNDARY_RADIUS_RATIO = 0.112;
+const DOT_SIZE_RATIO = 0.068;
 
 function detectScriptBasePath() {
   if (typeof document === "undefined") return "";

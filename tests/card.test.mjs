@@ -102,6 +102,13 @@ test("exports test api", () => {
   assert.equal(runtime.api.CARD_TYPE, "wit-ha-lovelace-card");
 });
 
+test("supports plain and custom-prefixed card types", () => {
+  const runtime = loadRuntime();
+  assert.equal(runtime.api.isSupportedCardType("wit-ha-lovelace-card"), true);
+  assert.equal(runtime.api.isSupportedCardType("custom:wit-ha-lovelace-card"), true);
+  assert.equal(runtime.api.isSupportedCardType("custom:other-card"), false);
+});
+
 test("version in package and card source are in sync", () => {
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf8"));
   const runtime = loadRuntime();
@@ -188,4 +195,5 @@ test("custom card metadata is registered", () => {
   const runtime = loadRuntime();
   assert.equal(runtime.customCards.length, 1);
   assert.equal(runtime.customCards[0].type, "wit-ha-lovelace-card");
+  assert.equal(runtime.customCards[0].preview, false);
 });

@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.1";
+const CARD_VERSION = "0.1.2";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -203,6 +203,11 @@ function normalizeConfig(config) {
   return normalized;
 }
 
+function isSupportedCardType(type) {
+  const value = String(type || "").trim();
+  return value === CARD_TYPE || value === `custom:${CARD_TYPE}`;
+}
+
 function isStateUnavailable(stateObj) {
   const state = String(stateObj?.state || "").toLowerCase();
   return !stateObj || state === "" || state === "unknown" || state === "unavailable" || state === "none";
@@ -307,7 +312,7 @@ class WitHaLovelaceCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || config.type !== `custom:${CARD_TYPE}`) {
+    if (!config || !isSupportedCardType(config.type)) {
       throw new Error(`Invalid configuration for ${CARD_TYPE}`);
     }
     this._config = normalizeConfig(config);
@@ -872,7 +877,7 @@ if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
     type: CARD_TYPE,
     name: CARD_NAME,
     description: "RV leveling visualization card for WIT tilt sensors.",
-    preview: true,
+    preview: false,
     documentationURL: "https://github.com/othorg/wit-ha-lovelace-card",
     icon: DEFAULT_ICON_CANDIDATES[0] || "mdi:caravan",
   });
@@ -886,6 +891,7 @@ window.__WIT_CARD_TEST_API = {
   resolvePitchRoll,
   readNumericState,
   clampNumber,
+  isSupportedCardType,
 };
 
 console.info(`%c${CARD_NAME} %c${CARD_VERSION}`, "color:#0b75b7;font-weight:700", "color:#666;font-weight:400");

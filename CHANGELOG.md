@@ -9,6 +9,13 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.2] - 2026-03-10
+
+### Fixed
+- Improved card-picker compatibility by accepting both `wit-ha-lovelace-card` and `custom:wit-ha-lovelace-card` config types in `setConfig`.
+- Disabled card preview in metadata (`preview: false`) to avoid stuck preview loading in Home Assistant card picker.
+- Added regression tests for supported card-type variants and metadata preview flag.
+
 ## [0.1.1] - 2026-03-10
 
 ### Fixed

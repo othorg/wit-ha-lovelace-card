@@ -9,6 +9,15 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.1.8] - 2026-03-10
+
+### Changed
+- Removed the extra visible helper circle for the center bubble.
+- Calibrated bubble center/radius ratios to align movement with the circle area in `rv_top_flair.png`.
+
+### Fixed
+- Center dot remains circle-constrained while now visually following the base image circle without an additional overlay ring.
+
 ## [0.1.7] - 2026-03-10
 
 ### Fixed

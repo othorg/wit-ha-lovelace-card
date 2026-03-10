@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.1.7";
+const CARD_VERSION = "0.1.8";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -119,8 +119,8 @@ const TEXT_SIZE_MODE_FACTORS = {
 
 const MAX_LEVELING_TILT_DEG = 30;
 const DOT_CENTER_X_RATIO = 0.5;
-const DOT_CENTER_Y_RATIO = 0.49;
-const DOT_ZONE_SIZE_RATIO = 0.235;
+const DOT_CENTER_Y_RATIO = 0.495;
+const DOT_ZONE_SIZE_RATIO = 0.21;
 const DOT_SIZE_RATIO = 0.078;
 
 function detectScriptBasePath() {
@@ -621,14 +621,7 @@ class WitHaLovelaceCard extends HTMLElement {
           transform: translate(-50%, -50%);
           z-index: 2;
           pointer-events: none;
-        }
-        .bubble-track {
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          border: 2px solid rgba(0, 200, 83, 0.55);
-          background: rgba(0, 200, 83, 0.08);
-          box-sizing: border-box;
+          background: transparent;
         }
         .corner {
           position: absolute;
@@ -683,7 +676,6 @@ class WitHaLovelaceCard extends HTMLElement {
           <div class="overlay pitch clickable" data-entity-key="pitch"></div>
           <div class="overlay roll clickable" data-entity-key="roll"></div>
           <div class="bubble-zone">
-            <div class="bubble-track"></div>
             <div class="dot"></div>
           </div>
 

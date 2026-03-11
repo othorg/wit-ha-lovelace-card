@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.5";
+const CARD_VERSION = "0.3.6";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -54,11 +54,11 @@ const DEFAULT_ORIENTATION = {
 };
 
 const DEFAULT_ENTITIES = {
-  pitch: "sensor.easylevelrv_neigung_x",
-  roll: "sensor.easylevelrv_neigung_y",
-  yaw: "",
-  temperature: "sensor.easylevelrv_temperatur",
-  battery_soc: "sensor.easylevelrv_batterie",
+  pitch: "sensor.wit_wt5500008241_neigung",
+  roll: "sensor.wit_wt5500008241_roll",
+  yaw: "sensor.wit_wt5500008241_gier",
+  temperature: "sensor.wit_wt5500008241_temperatur",
+  battery_soc: "sensor.wit_wt5500008241_batterie",
 };
 
 const I18N = {
@@ -68,11 +68,11 @@ const I18N = {
     title: "Ueberschrift",
     image_url: "Basisbild URL (optional)",
     entities: "Entitaeten",
-    pitch_entity: "Neigung X/Pitch",
-    roll_entity: "Neigung Y/Roll",
-    yaw_entity: "Yaw",
+    pitch_entity: "Neigung (Pitch)",
+    roll_entity: "Roll",
+    yaw_entity: "Gier (Yaw)",
     temp_entity: "Temperatur",
-    batt_entity: "Batterie SoC",
+    batt_entity: "Batterie",
     geometry: "Geometrie",
     wheelbase_mm: "Achsabstand (mm)",
     track_front_mm: "Spur vorne (mm)",
@@ -139,11 +139,11 @@ const I18N = {
     title: "Title",
     image_url: "Base image URL (optional)",
     entities: "Entities",
-    pitch_entity: "Inclination X/Pitch",
-    roll_entity: "Inclination Y/Roll",
-    yaw_entity: "Yaw",
+    pitch_entity: "Inclination (Pitch)",
+    roll_entity: "Roll",
+    yaw_entity: "Yaw (Gier)",
     temp_entity: "Temperature",
-    batt_entity: "Battery SoC",
+    batt_entity: "Battery",
     geometry: "Geometry",
     wheelbase_mm: "Wheelbase (mm)",
     track_front_mm: "Front track (mm)",

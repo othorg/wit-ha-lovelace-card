@@ -9,6 +9,20 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.6] - 2026-03-11
+
+### Changed
+- Updated default entity mapping to match the current `wit_901_wifi` sensor naming from HA:
+  - `pitch`: `sensor.wit_wt5500008241_neigung`
+  - `roll`: `sensor.wit_wt5500008241_roll`
+  - `yaw`: `sensor.wit_wt5500008241_gier`
+  - `temperature`: `sensor.wit_wt5500008241_temperatur`
+  - `battery_soc`: `sensor.wit_wt5500008241_batterie`
+- Harmonized editor labels with WIT integration terminology (`Neigung`, `Roll`, `Gier`, `Temperatur`, `Batterie`) while keeping config keys backward-compatible.
+
+### Tests
+- Updated default-config test assertions for the new WIT-oriented default entity IDs.
+
 ## [0.3.5] - 2026-03-11
 
 ### Changed

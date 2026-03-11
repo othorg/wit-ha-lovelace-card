@@ -119,8 +119,11 @@ test("normalizeConfig applies defaults", () => {
   const runtime = loadRuntime();
   const cfg = runtime.api.normalizeConfig({ type: "custom:rv-ha-lovelace-card" });
 
-  assert.equal(cfg.entities.pitch, "sensor.easylevelrv_neigung_x");
-  assert.equal(cfg.entities.yaw, "");
+  assert.equal(cfg.entities.pitch, "sensor.wit_wt5500008241_neigung");
+  assert.equal(cfg.entities.roll, "sensor.wit_wt5500008241_roll");
+  assert.equal(cfg.entities.yaw, "sensor.wit_wt5500008241_gier");
+  assert.equal(cfg.entities.temperature, "sensor.wit_wt5500008241_temperatur");
+  assert.equal(cfg.entities.battery_soc, "sensor.wit_wt5500008241_batterie");
   assert.equal(cfg.geometry.wheelbase_mm, 2000);
   assert.equal(cfg.display.mode, "rv_top");
   assert.equal(cfg.display.max_tilt_deg, 5);

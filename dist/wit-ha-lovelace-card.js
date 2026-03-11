@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.2.8";
+const CARD_VERSION = "0.2.9";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -269,10 +269,16 @@ function uniq(values) {
 const SCRIPT_BASE = detectScriptBasePath();
 const DEFAULT_IMAGE_CANDIDATES = uniq([
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv_top_flair.png` : "",
+  "/hacsfiles/rv-level-ha-lovelace-card/rv_top_flair.png",
+  "/local/community/rv-level-ha-lovelace-card/rv_top_flair.png",
+  "/local/rv-level-ha-lovelace-card/rv_top_flair.png",
   "/hacsfiles/wit-ha-lovelace-card/rv_top_flair.png",
   "/local/community/wit-ha-lovelace-card/rv_top_flair.png",
   "/local/wit-ha-lovelace-card/rv_top_flair.png",
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-rv-top.svg` : "",
+  "/hacsfiles/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
+  "/local/community/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
+  "/local/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
   "/hacsfiles/wit-ha-lovelace-card/rv-level-rv-top.svg",
   "/local/community/wit-ha-lovelace-card/rv-level-rv-top.svg",
   "/local/wit-ha-lovelace-card/rv-level-rv-top.svg",
@@ -281,6 +287,12 @@ const DEFAULT_IMAGE_CANDIDATES = uniq([
 const DEFAULT_ICON_CANDIDATES = uniq([
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-icon.svg` : "",
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-icon.png` : "",
+  "/hacsfiles/rv-level-ha-lovelace-card/rv-level-icon.svg",
+  "/hacsfiles/rv-level-ha-lovelace-card/rv-level-icon.png",
+  "/local/community/rv-level-ha-lovelace-card/rv-level-icon.svg",
+  "/local/community/rv-level-ha-lovelace-card/rv-level-icon.png",
+  "/local/rv-level-ha-lovelace-card/rv-level-icon.svg",
+  "/local/rv-level-ha-lovelace-card/rv-level-icon.png",
   "/hacsfiles/wit-ha-lovelace-card/rv-level-icon.svg",
   "/hacsfiles/wit-ha-lovelace-card/rv-level-icon.png",
   "/local/community/wit-ha-lovelace-card/rv-level-icon.svg",
@@ -2237,7 +2249,7 @@ if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
     name: CARD_NAME,
     description: "RV leveling visualization card.",
     preview: false,
-    documentationURL: "https://github.com/othorg/wit-ha-lovelace-card",
+    documentationURL: "https://github.com/othorg/rv-level-ha-lovelace-card",
     icon: DEFAULT_ICON_CANDIDATES[0] || "mdi:caravan",
   });
 }

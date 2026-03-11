@@ -9,6 +9,16 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.2.9] - 2026-03-11
+
+### Changed
+- Added HACS validation job (`hacs/action`, `category: plugin`) to CI.
+- Updated README repository/resource references to `rv-level-ha-lovelace-card`.
+- Added fallback asset paths for both repository slugs:
+  - `rv-level-ha-lovelace-card` (new)
+  - `wit-ha-lovelace-card` (legacy compatibility)
+- Added maintainer checklist: `docs/HACS_DEFAULT_SUBMISSION.md`.
+
 ## [0.2.8] - 2026-03-11
 
 ### Fixed

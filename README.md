@@ -98,7 +98,7 @@ For reliable leveling values, sensor placement matters more than card settings.
 1. Open `HACS`.
 2. Open menu (top-right, 3 dots) -> `Custom repositories`.
 3. Add repository URL:
-   - `https://github.com/othorg/wit-ha-lovelace-card`
+   - `https://github.com/othorg/rv-level-ha-lovelace-card`
 4. Category: `Dashboard`.
 5. Install **RV Level Lovelace Card**.
 6. Reload browser tab (or restart Home Assistant frontend once).
@@ -108,7 +108,7 @@ For reliable leveling values, sensor placement matters more than card settings.
 
 If needed, add manually:
 
-- URL: `/hacsfiles/wit-ha-lovelace-card/wit-ha-lovelace-card.js`
+- URL: `/hacsfiles/rv-level-ha-lovelace-card/wit-ha-lovelace-card.js`
 - Type: `module`
 
 ## Card type

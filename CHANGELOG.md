@@ -9,6 +9,23 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.2.2] - 2026-03-11
+
+### Changed
+- Round-compass header layout updated:
+  - temperature moved to the right and right-aligned,
+  - battery moved to the left and right-aligned for symmetric alignment.
+- Added configurable text color (`display.text_color`) and applied it across both display modes.
+- Added round-compass corner value panel (FL/FR/RL/RR) with level/raise indicators.
+- Round-compass now uses geometry-driven leveling values (wheelbase/front/rear track) like the original RV view.
+- Replaced display color text inputs in the editor with color pickers for direct UI color selection.
+
+### Fixed
+- Hardened CSS color sanitization with blocked global CSS keywords and stricter named-color matching.
+- Escaped compass SVG color values before injecting into SVG markup.
+- Added cached screen-orientation detection to reduce repeated orientation checks at high update rates.
+- Added heading re-normalization in smoothing loop to prevent unbounded long-running heading values.
+
 ## [0.2.1] - 2026-03-11
 
 ### Changed

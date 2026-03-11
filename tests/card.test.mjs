@@ -281,10 +281,14 @@ test("normalizeConfig sanitizes invalid color strings", () => {
     type: "custom:wit-ha-lovelace-card",
     display: {
       background_color: "url(javascript:alert(1))",
+      level_gradient_start: "inherit",
+      level_gradient_end: "unset",
       dot_color: "#00ff00",
     },
   });
   assert.equal(cfg.display.background_color, "#9bc4d6");
+  assert.equal(cfg.display.level_gradient_start, "#e8ff84");
+  assert.equal(cfg.display.level_gradient_end, "#c3de41");
   assert.equal(cfg.display.dot_color, "#00ff00");
 });
 

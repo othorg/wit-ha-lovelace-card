@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "WIT RV Level Lovelace Card";
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -22,8 +22,8 @@ const DEFAULT_DISPLAY = {
   background_color: "#9bc4d6",
   level_gradient_start: "#e8ff84",
   level_gradient_end: "#c3de41",
-  level_highlight_color: "rgba(255,255,255,0.42)",
-  crosshair_color: "rgba(20,27,19,0.72)",
+  level_highlight_color: "#ffffff",
+  crosshair_color: "#141b13",
   ring_background_color: "#0a0d13",
   ring_tick_color: "#8f96a6",
   ring_major_tick_color: "#dfe4ef",
@@ -32,6 +32,7 @@ const DEFAULT_DISPLAY = {
   dot_border_color: "#2a211f",
   level_ok_color: "#00c853",
   raise_color: "#ff1744",
+  text_color: "#111111",
   show_compass_status: true,
   compass_unreliable_tilt_deg: 20,
   smooth_alpha: 0.2,
@@ -89,6 +90,7 @@ const I18N = {
     dot_border_color: "Blasenrandfarbe",
     level_ok_color: "Nivelliert-Farbe",
     raise_color: "Anheben-Farbe",
+    text_color: "Schriftfarbe",
     show_compass_status: "Kompass-Status anzeigen",
     compass_unreliable_tilt_deg: "Tilt-Grenze fuer Kompass-Hinweis (Grad)",
     smooth_alpha: "Glaettung (0-1)",
@@ -152,6 +154,7 @@ const I18N = {
     dot_border_color: "Bubble border color",
     level_ok_color: "Level-ok color",
     raise_color: "Raise-needed color",
+    text_color: "Text color",
     show_compass_status: "Show compass status",
     compass_unreliable_tilt_deg: "Tilt limit for compass hint (deg)",
     smooth_alpha: "Smoothing (0-1)",
@@ -273,11 +276,22 @@ function t(lang, key) {
 function sanitizeCssColor(value, fallback) {
   const raw = String(value ?? "").trim();
   if (!raw) return fallback;
+  const lower = raw.toLowerCase();
+  const blockedKeywords = new Set([
+    "inherit",
+    "initial",
+    "unset",
+    "revert",
+    "revert-layer",
+    "expression",
+    "url",
+  ]);
+  if (blockedKeywords.has(lower)) return fallback;
   if (/^#[0-9a-fA-F]{3,8}$/.test(raw)) return raw;
   if (/^rgba?\(\s*[\d.\s,%+-]+\)$/.test(raw)) return raw;
   if (/^hsla?\(\s*[\d.\s,%+-]+\)$/.test(raw)) return raw;
   if (/^var\(--[a-zA-Z0-9_-]+\)$/.test(raw)) return raw;
-  if (/^[a-zA-Z]+$/.test(raw)) return raw;
+  if (/^[a-z]{3,20}$/i.test(raw)) return raw;
   return fallback;
 }
 
@@ -367,6 +381,7 @@ function normalizeConfig(config) {
   normalized.display.dot_border_color = sanitizeCssColor(normalized.display.dot_border_color, DEFAULT_DISPLAY.dot_border_color);
   normalized.display.level_ok_color = sanitizeCssColor(normalized.display.level_ok_color, DEFAULT_DISPLAY.level_ok_color);
   normalized.display.raise_color = sanitizeCssColor(normalized.display.raise_color, DEFAULT_DISPLAY.raise_color);
+  normalized.display.text_color = sanitizeCssColor(normalized.display.text_color, DEFAULT_DISPLAY.text_color);
 
   normalized.orientation.swap_axes = Boolean(normalized.orientation.swap_axes);
   normalized.orientation.invert_pitch = Boolean(normalized.orientation.invert_pitch);
@@ -414,14 +429,14 @@ function readNumericState(hass, entityId) {
   return value;
 }
 
-function resolvePitchRoll(hass, config) {
+function resolvePitchRoll(hass, config, isLandscape = isLandscapeOrientation()) {
   const pitchEntity = config?.entities?.pitch || "";
   const rollEntity = config?.entities?.roll || "";
 
   let pitch = readNumericState(hass, pitchEntity);
   let roll = readNumericState(hass, rollEntity);
 
-  if (pitch !== null && roll !== null && config?.orientation?.auto_screen_mapping && isLandscapeOrientation()) {
+  if (pitch !== null && roll !== null && config?.orientation?.auto_screen_mapping && isLandscape) {
     const p = pitch;
     // 90-degree remap for common landscape usage in dashboards.
     pitch = roll;
@@ -579,6 +594,17 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function asColorInputValue(value, fallback) {
+  const color = sanitizeCssColor(value, fallback);
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+    const c = color.slice(1);
+    return `#${c[0]}${c[0]}${c[1]}${c[1]}${c[2]}${c[2]}`;
+  }
+  if (/^#[0-9a-fA-F]{8}$/.test(color)) return `#${color.slice(1, 7)}`;
+  return fallback;
+}
+
 function fmtOne(value) {
   if (!Number.isFinite(value)) return "0.0";
   return (Math.round(value * 10) / 10).toFixed(1);
@@ -615,6 +641,7 @@ class WitHaLovelaceCard extends HTMLElement {
     };
     this._rafId = 0;
     this._lastRafTs = 0;
+    this._orientationCache = { value: false, ts: 0 };
   }
 
   static getStubConfig() {
@@ -754,7 +781,7 @@ class WitHaLovelaceCard extends HTMLElement {
   }
 
   _buildModel() {
-    const pr = resolvePitchRoll(this._hass, this._config);
+    const pr = resolvePitchRoll(this._hass, this._config, this._isLandscapeCached());
     const safePitch = pr.valid ? clampTiltForLeveling(pr.pitch) : null;
     const safeRoll = pr.valid ? clampTiltForLeveling(pr.roll) : null;
     const level = pr.valid ? computeLeveling(safePitch, safeRoll, this._config.geometry) : null;
@@ -830,6 +857,15 @@ class WitHaLovelaceCard extends HTMLElement {
     if (entityId) this._emitMoreInfo(entityId);
   }
 
+  _isLandscapeCached() {
+    const now = Date.now();
+    if (now - this._orientationCache.ts > 500) {
+      this._orientationCache.value = isLandscapeOrientation();
+      this._orientationCache.ts = now;
+    }
+    return this._orientationCache.value;
+  }
+
   _stopAnimationLoop() {
     if (this._rafId) {
       if (typeof cancelAnimationFrame === "function") {
@@ -883,6 +919,11 @@ class WitHaLovelaceCard extends HTMLElement {
     const currentNorm = normalize360(this._smoothState.heading);
     const delta = shortestAngleDelta(currentNorm, targetHeading);
     this._smoothTarget.heading = this._smoothState.heading + delta;
+    if (Math.abs(this._smoothState.heading) > 3600) {
+      this._smoothState.heading = normalize360(this._smoothState.heading);
+      const recalculatedDelta = shortestAngleDelta(this._smoothState.heading, targetHeading);
+      this._smoothTarget.heading = this._smoothState.heading + recalculatedDelta;
+    }
   }
 
   _startRoundAnimationLoop() {
@@ -1157,10 +1198,10 @@ class WitHaLovelaceCard extends HTMLElement {
   }
 
   _buildCompassRingSvg() {
-    const ringBg = this._config.display.ring_background_color;
-    const tick = this._config.display.ring_tick_color;
-    const majorTick = this._config.display.ring_major_tick_color;
-    const cardinalColor = this._config.display.ring_cardinal_color;
+    const ringBg = escapeHtml(this._config.display.ring_background_color);
+    const tick = escapeHtml(this._config.display.ring_tick_color);
+    const majorTick = escapeHtml(this._config.display.ring_major_tick_color);
+    const cardinalColor = escapeHtml(this._config.display.ring_cardinal_color);
     const ticks = [];
     const labels = [];
     for (let deg = 0; deg < 360; deg += 5) {
@@ -1221,24 +1262,26 @@ class WitHaLovelaceCard extends HTMLElement {
         }
         .head-value {
           font-family: Arial, sans-serif;
-          color: #e6ebf4;
+          color: #111;
           text-shadow: 0 0 4px rgba(0,0,0,0.6);
           font-size: 14px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          min-width: 70px;
         }
         .head-value.right { text-align: right; justify-self: end; }
-        .head-value.left { text-align: left; justify-self: start; }
+        .head-value.left { text-align: right; justify-self: end; }
         .title {
           font-family: Arial, sans-serif;
-          color: #f1f4fa;
+          color: #111;
           text-align: center;
           font-size: 20px;
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          max-width: 56vw;
         }
         .clickable { cursor: pointer; }
         .compass-wrapper {
@@ -1331,7 +1374,7 @@ class WitHaLovelaceCard extends HTMLElement {
           grid-template-columns: 1fr auto;
           align-items: center;
           padding: 8px 4px;
-          color: #e8edf7;
+          color: #111;
           border-bottom: 1px solid rgba(172,180,203,0.12);
           font-size: 18px;
           line-height: 1.2;
@@ -1346,19 +1389,51 @@ class WitHaLovelaceCard extends HTMLElement {
         .status-row {
           margin-top: 8px;
           font-family: Arial, sans-serif;
-          color: #ffe185;
+          color: #111;
           font-size: 13px;
           text-align: center;
           min-height: 18px;
           line-height: 1.2;
         }
+        .corner-grid {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px 10px;
+          font-family: Arial, sans-serif;
+        }
+        .corner-cell {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          gap: 6px;
+          align-items: center;
+          min-width: 0;
+          color: #111;
+          font-size: 14px;
+          border: 1px solid rgba(0,0,0,0.12);
+          border-radius: 8px;
+          padding: 4px 6px;
+          background: rgba(255,255,255,0.28);
+        }
+        .corner-cell .corner-key { font-weight: 600; opacity: 0.9; }
+        .corner-cell .corner-value {
+          justify-self: end;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .corner-cell .corner-indicator {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #00c853;
+        }
       </style>
       <ha-card>
         <div class="wrapper round">
           <div class="round-head">
-            <div class="head-value left clickable temp" data-entity-key="temperature"></div>
+            <div class="head-value left clickable batt" data-entity-key="battery_soc"></div>
             <div class="title"></div>
-            <div class="head-value right clickable batt" data-entity-key="battery_soc"></div>
+            <div class="head-value right clickable temp" data-entity-key="temperature"></div>
           </div>
           <div class="compass-wrapper">
             <div class="ring-rotor">${this._buildCompassRingSvg()}</div>
@@ -1386,6 +1461,28 @@ class WitHaLovelaceCard extends HTMLElement {
               <span class="value-number angle-z-value"></span>
             </div>
           </div>
+          <div class="corner-grid">
+            <div class="corner-cell corner-fl">
+              <span class="corner-key">FL</span>
+              <span class="corner-value"></span>
+              <span class="corner-indicator"></span>
+            </div>
+            <div class="corner-cell corner-fr">
+              <span class="corner-key">FR</span>
+              <span class="corner-value"></span>
+              <span class="corner-indicator"></span>
+            </div>
+            <div class="corner-cell corner-rl">
+              <span class="corner-key">RL</span>
+              <span class="corner-value"></span>
+              <span class="corner-indicator"></span>
+            </div>
+            <div class="corner-cell corner-rr">
+              <span class="corner-key">RR</span>
+              <span class="corner-value"></span>
+              <span class="corner-indicator"></span>
+            </div>
+          </div>
           <div class="status-row compass-status"></div>
         </div>
       </ha-card>
@@ -1401,6 +1498,11 @@ class WitHaLovelaceCard extends HTMLElement {
       ringRotor: this.shadowRoot.querySelector(".ring-rotor"),
       levelCircle: this.shadowRoot.querySelector(".level-circle"),
       dot: this.shadowRoot.querySelector(".dot"),
+      cornerGrid: this.shadowRoot.querySelector(".corner-grid"),
+      cornerFL: this.shadowRoot.querySelector(".corner-fl"),
+      cornerFR: this.shadowRoot.querySelector(".corner-fr"),
+      cornerRL: this.shadowRoot.querySelector(".corner-rl"),
+      cornerRR: this.shadowRoot.querySelector(".corner-rr"),
       angleXLabel: this.shadowRoot.querySelector(".angle-x-label"),
       angleYLabel: this.shadowRoot.querySelector(".angle-y-label"),
       angleZLabel: this.shadowRoot.querySelector(".angle-z-label"),
@@ -1457,6 +1559,7 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.title.hidden = !title;
     this._nodes.title.style.fontSize = `${titlePx}px`;
     this._nodes.title.style.maxWidth = `${titleMaxWidthPx}px`;
+    this._nodes.title.style.color = this._config.display.text_color;
 
     this._nodes.temp.hidden = !this._config.display.show_temperature;
     this._nodes.batt.hidden = !this._config.display.show_battery;
@@ -1466,6 +1569,8 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.batt.style.fontSize = `${infoPx}px`;
     this._nodes.temp.style.maxWidth = `${topMaxWidthPx}px`;
     this._nodes.batt.style.maxWidth = `${topMaxWidthPx}px`;
+    this._nodes.temp.style.color = this._config.display.text_color;
+    this._nodes.batt.style.color = this._config.display.text_color;
 
     const pitchText = model.valid ? `${fmtOne(model.pitch)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
     const rollText = model.valid ? `${fmtOne(model.roll)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
@@ -1475,6 +1580,8 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.roll.style.fontSize = `${anglePx}px`;
     this._nodes.pitch.style.maxWidth = `${pitchMaxWidthPx}px`;
     this._nodes.roll.style.maxWidth = `${rollMaxWidthPx}px`;
+    this._nodes.pitch.style.color = this._config.display.text_color;
+    this._nodes.roll.style.color = this._config.display.text_color;
 
     const dotGeometry = computeDotGeometry(width, this._config.display);
     const dotSizePx = dotGeometry.dotSizePx;
@@ -1526,6 +1633,7 @@ class WitHaLovelaceCard extends HTMLElement {
         valueNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
         valueNode.style.fontSize = `${cornerPx}px`;
         valueNode.style.maxWidth = `${cornerMaxWidthPx}px`;
+        valueNode.style.color = this._config.display.text_color;
       } else {
         valueNode.hidden = true;
       }
@@ -1555,12 +1663,15 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.title.textContent = title;
     this._nodes.title.hidden = !title;
     this._nodes.title.style.fontSize = `${titlePx}px`;
+    this._nodes.title.style.color = this._config.display.text_color;
     this._nodes.temp.hidden = !this._config.display.show_temperature;
     this._nodes.batt.hidden = !this._config.display.show_battery;
     this._nodes.temp.textContent = this._buildHeadValue(model.tempText);
     this._nodes.batt.textContent = this._buildHeadValue(model.battText);
     this._nodes.temp.style.fontSize = `${infoPx}px`;
     this._nodes.batt.style.fontSize = `${infoPx}px`;
+    this._nodes.temp.style.color = this._config.display.text_color;
+    this._nodes.batt.style.color = this._config.display.text_color;
     this._nodes.wrapper.style.background = this._config.display.background_color;
 
     this._nodes.angleXLabel.textContent = `${this._t("angle_x")}`;
@@ -1569,6 +1680,12 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.angleXValue.style.fontSize = `${valuePx}px`;
     this._nodes.angleYValue.style.fontSize = `${valuePx}px`;
     this._nodes.angleZValue.style.fontSize = `${valuePx}px`;
+    this._nodes.angleXValue.style.color = this._config.display.text_color;
+    this._nodes.angleYValue.style.color = this._config.display.text_color;
+    this._nodes.angleZValue.style.color = this._config.display.text_color;
+    this._nodes.angleXLabel.style.color = this._config.display.text_color;
+    this._nodes.angleYLabel.style.color = this._config.display.text_color;
+    this._nodes.angleZLabel.style.color = this._config.display.text_color;
 
     this._nodes.levelCircle.style.background = `
       radial-gradient(circle at 50% 36%, ${this._config.display.level_highlight_color}, rgba(255,255,255,0) 35%),
@@ -1580,6 +1697,27 @@ class WitHaLovelaceCard extends HTMLElement {
     const crossNodes = this.shadowRoot.querySelectorAll(".cross");
     for (const node of crossNodes) node.style.background = this._config.display.crosshair_color;
 
+    const applyCornerCell = (cellNode, corner) => {
+      if (!cellNode) return;
+      const valueNode = cellNode.querySelector(".corner-value");
+      const indicatorNode = cellNode.querySelector(".corner-indicator");
+      const value = corner.raise === null ? 0 : corner.raise;
+      valueNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
+      valueNode.style.color = this._config.display.text_color;
+      const keyNode = cellNode.querySelector(".corner-key");
+      keyNode.style.color = this._config.display.text_color;
+      indicatorNode.style.background = corner.levelOk
+        ? this._config.display.level_ok_color
+        : this._config.display.raise_color;
+    };
+    this._nodes.cornerGrid.hidden = !this._config.display.show_corner_values;
+    if (this._config.display.show_corner_values) {
+      applyCornerCell(this._nodes.cornerFL, model.corners.fl);
+      applyCornerCell(this._nodes.cornerFR, model.corners.fr);
+      applyCornerCell(this._nodes.cornerRL, model.corners.rl);
+      applyCornerCell(this._nodes.cornerRR, model.corners.rr);
+    }
+
     if (this._config.display.show_compass_status && model.yawAvailable && !model.compassReliable) {
       this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
       this._nodes.compassStatus.hidden = false;
@@ -1587,6 +1725,7 @@ class WitHaLovelaceCard extends HTMLElement {
       this._nodes.compassStatus.textContent = "";
       this._nodes.compassStatus.hidden = true;
     }
+    this._nodes.compassStatus.style.color = this._config.display.text_color;
 
     this._renderRoundDynamic();
     this._startRoundAnimationLoop();
@@ -1705,6 +1844,22 @@ class WitHaLovelaceCardEditor extends HTMLElement {
     const c = this._config;
     const options = this._stateOptions();
     const optionHtml = options.map((entityId) => `<option value="${escapeHtml(entityId)}"></option>`).join("");
+    const color = {
+      background_color: asColorInputValue(c.display.background_color, DEFAULT_DISPLAY.background_color),
+      dot_color: asColorInputValue(c.display.dot_color, DEFAULT_DISPLAY.dot_color),
+      dot_border_color: asColorInputValue(c.display.dot_border_color, DEFAULT_DISPLAY.dot_border_color),
+      crosshair_color: asColorInputValue(c.display.crosshair_color, DEFAULT_DISPLAY.crosshair_color),
+      level_gradient_start: asColorInputValue(c.display.level_gradient_start, DEFAULT_DISPLAY.level_gradient_start),
+      level_gradient_end: asColorInputValue(c.display.level_gradient_end, DEFAULT_DISPLAY.level_gradient_end),
+      level_highlight_color: asColorInputValue(c.display.level_highlight_color, DEFAULT_DISPLAY.level_highlight_color),
+      ring_background_color: asColorInputValue(c.display.ring_background_color, DEFAULT_DISPLAY.ring_background_color),
+      ring_tick_color: asColorInputValue(c.display.ring_tick_color, DEFAULT_DISPLAY.ring_tick_color),
+      ring_major_tick_color: asColorInputValue(c.display.ring_major_tick_color, DEFAULT_DISPLAY.ring_major_tick_color),
+      ring_cardinal_color: asColorInputValue(c.display.ring_cardinal_color, DEFAULT_DISPLAY.ring_cardinal_color),
+      level_ok_color: asColorInputValue(c.display.level_ok_color, DEFAULT_DISPLAY.level_ok_color),
+      raise_color: asColorInputValue(c.display.raise_color, DEFAULT_DISPLAY.raise_color),
+      text_color: asColorInputValue(c.display.text_color, DEFAULT_DISPLAY.text_color),
+    };
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -1782,31 +1937,34 @@ class WitHaLovelaceCardEditor extends HTMLElement {
             <div><label>${escapeHtml(this._t("smooth_alpha"))}</label><input id="smooth_alpha" data-group="display" type="number" step="0.01" min="0.01" max="1" value="${escapeHtml(c.display.smooth_alpha)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("background_color"))}</label><input id="background_color" data-group="display" type="text" value="${escapeHtml(c.display.background_color)}" /></div>
-            <div><label>${escapeHtml(this._t("dot_color"))}</label><input id="dot_color" data-group="display" type="text" value="${escapeHtml(c.display.dot_color)}" /></div>
+            <div><label>${escapeHtml(this._t("background_color"))}</label><input id="background_color" data-group="display" type="color" value="${escapeHtml(color.background_color)}" /></div>
+            <div><label>${escapeHtml(this._t("dot_color"))}</label><input id="dot_color" data-group="display" type="color" value="${escapeHtml(color.dot_color)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("dot_border_color"))}</label><input id="dot_border_color" data-group="display" type="text" value="${escapeHtml(c.display.dot_border_color)}" /></div>
-            <div><label>${escapeHtml(this._t("crosshair_color"))}</label><input id="crosshair_color" data-group="display" type="text" value="${escapeHtml(c.display.crosshair_color)}" /></div>
+            <div><label>${escapeHtml(this._t("dot_border_color"))}</label><input id="dot_border_color" data-group="display" type="color" value="${escapeHtml(color.dot_border_color)}" /></div>
+            <div><label>${escapeHtml(this._t("crosshair_color"))}</label><input id="crosshair_color" data-group="display" type="color" value="${escapeHtml(color.crosshair_color)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("level_gradient_start"))}</label><input id="level_gradient_start" data-group="display" type="text" value="${escapeHtml(c.display.level_gradient_start)}" /></div>
-            <div><label>${escapeHtml(this._t("level_gradient_end"))}</label><input id="level_gradient_end" data-group="display" type="text" value="${escapeHtml(c.display.level_gradient_end)}" /></div>
+            <div><label>${escapeHtml(this._t("level_gradient_start"))}</label><input id="level_gradient_start" data-group="display" type="color" value="${escapeHtml(color.level_gradient_start)}" /></div>
+            <div><label>${escapeHtml(this._t("level_gradient_end"))}</label><input id="level_gradient_end" data-group="display" type="color" value="${escapeHtml(color.level_gradient_end)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("level_highlight_color"))}</label><input id="level_highlight_color" data-group="display" type="text" value="${escapeHtml(c.display.level_highlight_color)}" /></div>
-            <div><label>${escapeHtml(this._t("ring_background_color"))}</label><input id="ring_background_color" data-group="display" type="text" value="${escapeHtml(c.display.ring_background_color)}" /></div>
+            <div><label>${escapeHtml(this._t("level_highlight_color"))}</label><input id="level_highlight_color" data-group="display" type="color" value="${escapeHtml(color.level_highlight_color)}" /></div>
+            <div><label>${escapeHtml(this._t("ring_background_color"))}</label><input id="ring_background_color" data-group="display" type="color" value="${escapeHtml(color.ring_background_color)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("ring_tick_color"))}</label><input id="ring_tick_color" data-group="display" type="text" value="${escapeHtml(c.display.ring_tick_color)}" /></div>
-            <div><label>${escapeHtml(this._t("ring_major_tick_color"))}</label><input id="ring_major_tick_color" data-group="display" type="text" value="${escapeHtml(c.display.ring_major_tick_color)}" /></div>
+            <div><label>${escapeHtml(this._t("ring_tick_color"))}</label><input id="ring_tick_color" data-group="display" type="color" value="${escapeHtml(color.ring_tick_color)}" /></div>
+            <div><label>${escapeHtml(this._t("ring_major_tick_color"))}</label><input id="ring_major_tick_color" data-group="display" type="color" value="${escapeHtml(color.ring_major_tick_color)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("ring_cardinal_color"))}</label><input id="ring_cardinal_color" data-group="display" type="text" value="${escapeHtml(c.display.ring_cardinal_color)}" /></div>
-            <div><label>${escapeHtml(this._t("level_ok_color"))}</label><input id="level_ok_color" data-group="display" type="text" value="${escapeHtml(c.display.level_ok_color)}" /></div>
+            <div><label>${escapeHtml(this._t("ring_cardinal_color"))}</label><input id="ring_cardinal_color" data-group="display" type="color" value="${escapeHtml(color.ring_cardinal_color)}" /></div>
+            <div><label>${escapeHtml(this._t("level_ok_color"))}</label><input id="level_ok_color" data-group="display" type="color" value="${escapeHtml(color.level_ok_color)}" /></div>
           </div>
           <div class="row inline">
-            <div><label>${escapeHtml(this._t("raise_color"))}</label><input id="raise_color" data-group="display" type="text" value="${escapeHtml(c.display.raise_color)}" /></div>
+            <div><label>${escapeHtml(this._t("raise_color"))}</label><input id="raise_color" data-group="display" type="color" value="${escapeHtml(color.raise_color)}" /></div>
+            <div><label>${escapeHtml(this._t("text_color"))}</label><input id="text_color" data-group="display" type="color" value="${escapeHtml(color.text_color)}" /></div>
+          </div>
+          <div class="row inline">
             <div><label>${escapeHtml(this._t("compass_unreliable_tilt_deg"))}</label><input id="compass_unreliable_tilt_deg" data-group="display" type="number" step="0.1" value="${escapeHtml(c.display.compass_unreliable_tilt_deg)}" /></div>
           </div>
           <label class="check"><input id="show_temperature" data-group="display" type="checkbox" ${c.display.show_temperature ? "checked" : ""} /> ${escapeHtml(this._t("show_temperature"))}</label>

@@ -4,6 +4,8 @@ Custom Lovelace card for Home Assistant to visualize RV leveling/orientation dat
 - `rv_top`: RV leveling top-view with corner raise guidance
 - `round_compass`: circular level target + rotating compass ring
 
+![RV Level Lovelace Card preview](https://raw.githubusercontent.com/othorg/rv-level-ha-lovelace-card/main/assets/rv_top_flair.png)
+
 The card is sensor-source agnostic: it works with any Home Assistant entities that provide compatible numeric values for pitch/roll/yaw/temperature/battery.
 
 ## Status

@@ -9,6 +9,16 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.2.10] - 2026-03-11
+
+### Fixed
+- Added a README preview image so HACS image validation passes (`Validation images`).
+
+### Changed
+- Updated GitHub Actions workflow to Node-24-ready action majors:
+  - `actions/checkout@v5`
+  - `actions/setup-node@v5`
+
 ## [0.2.9] - 2026-03-11
 
 ### Changed

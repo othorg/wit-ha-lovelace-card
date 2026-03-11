@@ -256,6 +256,14 @@ test("computeLeveling keeps diagonal raise mapping for YAML parity", () => {
   assert.equal(result.raise_rr, Math.max(0, result.z_fl - minZ));
 });
 
+test("shouldShowRaiseValue hides values at/below tolerance and shows above", () => {
+  const runtime = loadRuntime();
+  assert.equal(runtime.api.shouldShowRaiseValue({ raise: 0, levelOk: true }), false);
+  assert.equal(runtime.api.shouldShowRaiseValue({ raise: 0.1, levelOk: true }), false);
+  assert.equal(runtime.api.shouldShowRaiseValue({ raise: 0.2, levelOk: false }), true);
+  assert.equal(runtime.api.shouldShowRaiseValue({ raise: null, levelOk: false }), false);
+});
+
 test("clampTiltForLeveling caps extreme angles for stable rendering", () => {
   const runtime = loadRuntime();
   assert.equal(runtime.api.clampTiltForLeveling(5), 5);

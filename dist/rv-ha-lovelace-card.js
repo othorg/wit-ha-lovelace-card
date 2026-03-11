@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.6";
+const CARD_VERSION = "0.3.7";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -639,6 +639,10 @@ function fmtOne(value) {
 function fmtTwo(value) {
   if (!Number.isFinite(value)) return "0.00";
   return (Math.round(value * 100) / 100).toFixed(2);
+}
+
+function shouldShowRaiseValue(corner) {
+  return Boolean(corner && corner.raise !== null && !corner.levelOk);
 }
 
 class WitHaLovelaceCard extends HTMLElement {
@@ -1864,13 +1868,18 @@ class WitHaLovelaceCard extends HTMLElement {
     const showCorners = this._config.display.show_corner_values;
     const applyWheel = (dotNode, valNode, corner) => {
       dotNode.parentElement.hidden = !showCorners;
-      if (!showCorners) return;
-      dotNode.classList.toggle("needs-raise", !corner.levelOk);
-      dotNode.style.background = corner.levelOk
-        ? levelOkColor
-        : raiseColor;
+      if (!showCorners) {
+        valNode.hidden = true;
+        valNode.style.display = "none";
+        return;
+      }
+      const needsRaise = shouldShowRaiseValue(corner);
+      dotNode.classList.toggle("needs-raise", needsRaise);
+      dotNode.style.background = needsRaise ? raiseColor : levelOkColor;
       const value = corner.raise === null ? 0 : corner.raise;
-      valNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
+      valNode.hidden = !needsRaise;
+      valNode.style.display = needsRaise ? "" : "none";
+      valNode.textContent = needsRaise ? `${fmtOne(value)} ${this._t("unit_cm")}` : "";
       valNode.style.fontSize = `${wheelValuePx}px`;
       valNode.style.color = textColor;
     };
@@ -2054,15 +2063,16 @@ class WitHaLovelaceCard extends HTMLElement {
       if (!cellNode) return;
       const valueNode = cellNode.querySelector(".corner-value");
       const indicatorNode = cellNode.querySelector(".corner-indicator");
+      const needsRaise = shouldShowRaiseValue(corner);
       const value = corner.raise === null ? 0 : corner.raise;
-      valueNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
+      valueNode.hidden = !needsRaise;
+      valueNode.style.display = needsRaise ? "" : "none";
+      valueNode.textContent = needsRaise ? `${fmtOne(value)} ${this._t("unit_cm")}` : "";
       valueNode.style.color = textColor;
       const keyNode = cellNode.querySelector(".corner-key");
       keyNode.style.color = textColor;
-      indicatorNode.classList.toggle("needs-raise", !corner.levelOk);
-      indicatorNode.style.background = corner.levelOk
-        ? levelOkColor
-        : raiseColor;
+      indicatorNode.classList.toggle("needs-raise", needsRaise);
+      indicatorNode.style.background = needsRaise ? raiseColor : levelOkColor;
     };
     const showCornerGrid = this._config.display.show_corner_values;
     this._nodes.cornerGrid.hidden = !showCornerGrid;
@@ -2557,6 +2567,7 @@ window.__WIT_CARD_TEST_API = {
   computeRoundDotGeometry,
   resolvePitchRoll,
   fmtTwo,
+  shouldShowRaiseValue,
   readNumericState,
   clampNumber,
   shortestAngleDelta,

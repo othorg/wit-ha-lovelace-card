@@ -9,6 +9,17 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.7] - 2026-03-11
+
+### Changed
+- Leveling tolerance display behavior refined in both views (`rv_top` and `round_compass`):
+  - when a corner is within tolerance (`raise <= level_tolerance_cm`), it now shows only a green point
+  - corner raise values are hidden while within tolerance
+  - red arrow + value are shown only when tolerance is exceeded
+
+### Tests
+- Added unit test coverage for `shouldShowRaiseValue()` tolerance gating.
+
 ## [0.3.6] - 2026-03-11
 
 ### Changed

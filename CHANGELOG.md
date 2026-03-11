@@ -9,6 +9,30 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.2.4] - 2026-03-11
+
+### Added
+- New round-compass overlay positioning controls:
+  - `display.round_overlay_scale`
+  - `display.round_overlay_offset_x`
+  - `display.round_overlay_offset_y`
+- New display toggle:
+  - `display.show_compass_ring` to show/hide compass ring and index marker.
+- Added sensor placement/orientation guidance section in README for reliable vehicle mounting.
+
+### Changed
+- `image` (Basisbild URL) is now also used in `round_compass` mode as optional background image.
+- Refined color configuration editor UX:
+  - switched to a compact color palette grid with larger pickers and visible HEX values.
+- README now explicitly documents that the card is sensor-source agnostic (works with non-WT sensors if values are compatible).
+
+### Tests
+- Extended config normalization tests for:
+  - `round_overlay_scale`
+  - `round_overlay_offset_x`
+  - `round_overlay_offset_y`
+  - `show_compass_ring`
+
 ## [0.2.3] - 2026-03-11
 
 ### Changed

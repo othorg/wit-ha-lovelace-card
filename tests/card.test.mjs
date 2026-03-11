@@ -127,6 +127,10 @@ test("normalizeConfig applies defaults", () => {
   assert.equal(cfg.display.dot_boundary_radius_ratio, 0.112);
   assert.equal(cfg.display.round_dot_boundary_radius_ratio, 0.44);
   assert.equal(cfg.display.dot_size_ratio, 0.068);
+  assert.equal(cfg.display.round_overlay_scale, 1);
+  assert.equal(cfg.display.round_overlay_offset_x, 0);
+  assert.equal(cfg.display.round_overlay_offset_y, 0);
+  assert.equal(cfg.display.show_compass_ring, true);
   assert.equal(cfg.display.text_size_mode, "auto");
   assert.equal(cfg.display.background_color, "#9bc4d6");
   assert.equal(cfg.display.level_gradient_start, "#e8ff84");
@@ -170,7 +174,13 @@ test("normalizeConfig validates display mode and yaw-related orientation fields"
   const runtime = loadRuntime();
   const good = runtime.api.normalizeConfig({
     type: "custom:wit-ha-lovelace-card",
-    display: { mode: "round_compass" },
+    display: {
+      mode: "round_compass",
+      round_overlay_scale: 99,
+      round_overlay_offset_x: 250,
+      round_overlay_offset_y: -250,
+      show_compass_ring: 0,
+    },
     entities: { yaw: "sensor.yaw" },
     orientation: {
       invert_yaw: true,
@@ -181,6 +191,10 @@ test("normalizeConfig validates display mode and yaw-related orientation fields"
   assert.equal(good.entities.yaw, "sensor.yaw");
   assert.equal(good.orientation.invert_yaw, true);
   assert.equal(good.orientation.yaw_offset_deg, 360);
+  assert.equal(good.display.round_overlay_scale, 3);
+  assert.equal(good.display.round_overlay_offset_x, 100);
+  assert.equal(good.display.round_overlay_offset_y, -100);
+  assert.equal(good.display.show_compass_ring, false);
 
   const bad = runtime.api.normalizeConfig({
     type: "custom:wit-ha-lovelace-card",

@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.2.3";
+const CARD_VERSION = "0.2.4";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -19,6 +19,10 @@ const DEFAULT_DISPLAY = {
   show_temperature: true,
   show_battery: true,
   show_corner_values: true,
+  show_compass_ring: true,
+  round_overlay_scale: 1,
+  round_overlay_offset_x: 0,
+  round_overlay_offset_y: 0,
   background_color: "#9bc4d6",
   level_gradient_start: "#e8ff84",
   level_gradient_mid: "#d6ee65",
@@ -107,6 +111,10 @@ const I18N = {
     show_temperature: "Temperatur anzeigen",
     show_battery: "Batterie anzeigen",
     show_corner_values: "Eckwerte anzeigen",
+    show_compass_ring: "Kompassring anzeigen",
+    round_overlay_scale: "Kompass-Overlay Skalierung",
+    round_overlay_offset_x: "Kompass-Overlay X-Offset (%)",
+    round_overlay_offset_y: "Kompass-Overlay Y-Offset (%)",
     orientation: "Sensorausrichtung",
     swap_axes: "X/Y tauschen",
     invert_pitch: "Pitch invertieren",
@@ -172,6 +180,10 @@ const I18N = {
     show_temperature: "Show temperature",
     show_battery: "Show battery",
     show_corner_values: "Show corner values",
+    show_compass_ring: "Show compass ring",
+    round_overlay_scale: "Compass overlay scale",
+    round_overlay_offset_x: "Compass overlay X offset (%)",
+    round_overlay_offset_y: "Compass overlay Y offset (%)",
     orientation: "Sensor orientation",
     swap_axes: "Swap X/Y",
     invert_pitch: "Invert pitch",
@@ -198,6 +210,9 @@ const NUMBER_FIELDS = new Set([
   "dot_boundary_radius_ratio",
   "round_dot_boundary_radius_ratio",
   "dot_size_ratio",
+  "round_overlay_scale",
+  "round_overlay_offset_x",
+  "round_overlay_offset_y",
   "yaw_offset_deg",
   "compass_unreliable_tilt_deg",
   "smooth_alpha",
@@ -363,6 +378,10 @@ function normalizeConfig(config) {
   normalized.display.show_temperature = Boolean(normalized.display.show_temperature);
   normalized.display.show_battery = Boolean(normalized.display.show_battery);
   normalized.display.show_corner_values = Boolean(normalized.display.show_corner_values);
+  normalized.display.show_compass_ring = Boolean(normalized.display.show_compass_ring);
+  normalized.display.round_overlay_scale = clampNumber(normalized.display.round_overlay_scale, 0.2, 3, DEFAULT_DISPLAY.round_overlay_scale);
+  normalized.display.round_overlay_offset_x = clampNumber(normalized.display.round_overlay_offset_x, -100, 100, DEFAULT_DISPLAY.round_overlay_offset_x);
+  normalized.display.round_overlay_offset_y = clampNumber(normalized.display.round_overlay_offset_y, -100, 100, DEFAULT_DISPLAY.round_overlay_offset_y);
   normalized.display.show_compass_status = Boolean(normalized.display.show_compass_status);
   normalized.display.compass_unreliable_tilt_deg = clampNumber(
     normalized.display.compass_unreliable_tilt_deg,
@@ -1253,17 +1272,35 @@ class WitHaLovelaceCard extends HTMLElement {
         :host { display: block; }
         ha-card { overflow: hidden; }
         .wrapper.round {
+          position: relative;
           background: #9bc4d6;
           border-radius: 16px;
           padding: 14px 12px 14px;
           box-sizing: border-box;
+          overflow: hidden;
+        }
+        .round-bg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .round-overlay {
+          position: relative;
+          z-index: 2;
+          transform-origin: 50% 50%;
         }
         .round-head {
+          position: relative;
           display: grid;
-          grid-template-columns: 1fr auto 1fr;
+          grid-template-columns: 1fr 1fr;
           align-items: center;
           gap: 8px;
           margin-bottom: 10px;
+          min-height: 32px;
         }
         .head-value {
           font-family: Arial, sans-serif;
@@ -1275,9 +1312,21 @@ class WitHaLovelaceCard extends HTMLElement {
           text-overflow: ellipsis;
           min-width: 70px;
         }
-        .head-value.right { text-align: right; justify-self: end; }
-        .head-value.left { text-align: left; justify-self: start; }
+        .head-value.right {
+          grid-column: 2;
+          text-align: right;
+          justify-self: end;
+        }
+        .head-value.left {
+          grid-column: 1;
+          text-align: left;
+          justify-self: start;
+        }
         .title {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
           font-family: Arial, sans-serif;
           color: #111;
           text-align: center;
@@ -1286,7 +1335,8 @@ class WitHaLovelaceCard extends HTMLElement {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 56vw;
+          max-width: 58%;
+          pointer-events: none;
         }
         .clickable { cursor: pointer; }
         .compass-wrapper {
@@ -1435,6 +1485,8 @@ class WitHaLovelaceCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="wrapper round">
+          <img class="round-bg" alt="" />
+          <div class="round-overlay">
           <div class="round-head">
             <div class="head-value left clickable temp" data-entity-key="temperature"></div>
             <div class="title"></div>
@@ -1489,6 +1541,7 @@ class WitHaLovelaceCard extends HTMLElement {
             </div>
           </div>
           <div class="status-row compass-status"></div>
+          </div>
         </div>
       </ha-card>
     `;
@@ -1497,10 +1550,13 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes = {
       mode: "round_compass",
       wrapper,
+      roundBg: this.shadowRoot.querySelector(".round-bg"),
+      roundOverlay: this.shadowRoot.querySelector(".round-overlay"),
       temp: this.shadowRoot.querySelector(".temp"),
       batt: this.shadowRoot.querySelector(".batt"),
       title: this.shadowRoot.querySelector(".title"),
       ringRotor: this.shadowRoot.querySelector(".ring-rotor"),
+      compassIndex: this.shadowRoot.querySelector(".compass-index"),
       levelCircle: this.shadowRoot.querySelector(".level-circle"),
       dot: this.shadowRoot.querySelector(".dot"),
       cornerGrid: this.shadowRoot.querySelector(".corner-grid"),
@@ -1678,6 +1734,36 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.temp.style.color = this._config.display.text_color;
     this._nodes.batt.style.color = this._config.display.text_color;
     this._nodes.wrapper.style.background = this._config.display.background_color;
+    this._nodes.ringRotor.hidden = !this._config.display.show_compass_ring;
+    this._nodes.compassIndex.hidden = !this._config.display.show_compass_ring;
+    const roundBgUrl = String(this._config.image || "").trim();
+    this._nodes.roundBg.hidden = !roundBgUrl;
+    if (roundBgUrl) {
+      if (this._nodes.roundBg.dataset.src !== roundBgUrl) {
+        this._nodes.roundBg.dataset.src = roundBgUrl;
+        this._nodes.roundBg.src = roundBgUrl;
+      }
+      this._nodes.roundBg.alt = this._t("image_alt");
+    }
+    const overlayScale = clampNumber(
+      this._config.display.round_overlay_scale,
+      0.2,
+      3,
+      DEFAULT_DISPLAY.round_overlay_scale,
+    );
+    const overlayOffsetX = clampNumber(
+      this._config.display.round_overlay_offset_x,
+      -100,
+      100,
+      DEFAULT_DISPLAY.round_overlay_offset_x,
+    );
+    const overlayOffsetY = clampNumber(
+      this._config.display.round_overlay_offset_y,
+      -100,
+      100,
+      DEFAULT_DISPLAY.round_overlay_offset_y,
+    );
+    this._nodes.roundOverlay.style.transform = `translate(${overlayOffsetX}%, ${overlayOffsetY}%) scale(${overlayScale})`;
 
     this._nodes.angleXLabel.textContent = `${this._t("angle_x")}`;
     this._nodes.angleYLabel.textContent = `${this._t("angle_y")}`;
@@ -1866,6 +1952,33 @@ class WitHaLovelaceCardEditor extends HTMLElement {
       raise_color: asColorInputValue(c.display.raise_color, DEFAULT_DISPLAY.raise_color),
       text_color: asColorInputValue(c.display.text_color, DEFAULT_DISPLAY.text_color),
     };
+    const colorOrder = [
+      "background_color",
+      "text_color",
+      "dot_color",
+      "dot_border_color",
+      "crosshair_color",
+      "level_gradient_start",
+      "level_gradient_mid",
+      "level_gradient_end",
+      "level_highlight_color",
+      "ring_background_color",
+      "ring_tick_color",
+      "ring_major_tick_color",
+      "ring_cardinal_color",
+      "level_ok_color",
+      "raise_color",
+    ];
+    const colorTile = (id) => `
+      <label class="color-item" for="${id}">
+        <span class="color-name">${escapeHtml(this._t(id))}</span>
+        <span class="color-control">
+          <input id="${id}" data-group="display" type="color" value="${escapeHtml(color[id])}" />
+          <span class="color-code">${escapeHtml(String(color[id]).toUpperCase())}</span>
+        </span>
+      </label>
+    `;
+    const colorGridHtml = colorOrder.map((id) => colorTile(id)).join("");
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -1884,7 +1997,59 @@ class WitHaLovelaceCardEditor extends HTMLElement {
           padding: 8px 10px;
           font-size: 14px;
         }
+        input[type="color"] {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 34px;
+          border: 1px solid #c9c9c9;
+          border-radius: 8px;
+          padding: 2px;
+          background: #fff;
+          cursor: pointer;
+          box-sizing: border-box;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 6px; }
+        input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+        input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
         .check { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+        .color-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          gap: 10px;
+        }
+        .color-item {
+          display: grid;
+          gap: 6px;
+          border: 1px solid #d7d7d7;
+          border-radius: 10px;
+          padding: 8px;
+          background: #f8f8f8;
+        }
+        .color-name {
+          font-size: 12px;
+          color: #2f2f2f;
+          line-height: 1.2;
+        }
+        .color-control {
+          display: grid;
+          grid-template-columns: 52px 1fr;
+          gap: 8px;
+          align-items: center;
+        }
+        .color-code {
+          font-size: 12px;
+          color: #555;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          letter-spacing: 0.02em;
+          background: #fff;
+          border: 1px solid #d2d2d2;
+          border-radius: 6px;
+          padding: 6px 8px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       </style>
       <div class="grid">
         <div class="section">
@@ -1925,6 +2090,14 @@ class WitHaLovelaceCardEditor extends HTMLElement {
             <div><label>${escapeHtml(this._t("max_tilt_deg"))}</label><input id="max_tilt_deg" data-group="display" type="number" step="0.1" value="${escapeHtml(c.display.max_tilt_deg)}" /></div>
             <div><label>${escapeHtml(this._t("level_tolerance_cm"))}</label><input id="level_tolerance_cm" data-group="display" type="number" step="0.1" value="${escapeHtml(c.display.level_tolerance_cm)}" /></div>
           </div>
+          <div class="row inline">
+            <div><label>${escapeHtml(this._t("round_overlay_scale"))}</label><input id="round_overlay_scale" data-group="display" type="number" step="0.01" min="0.2" max="3" value="${escapeHtml(c.display.round_overlay_scale)}" /></div>
+            <div><label>${escapeHtml(this._t("round_overlay_offset_x"))}</label><input id="round_overlay_offset_x" data-group="display" type="number" step="0.5" min="-100" max="100" value="${escapeHtml(c.display.round_overlay_offset_x)}" /></div>
+          </div>
+          <div class="row">
+            <label>${escapeHtml(this._t("round_overlay_offset_y"))}</label>
+            <input id="round_overlay_offset_y" data-group="display" type="number" step="0.5" min="-100" max="100" value="${escapeHtml(c.display.round_overlay_offset_y)}" />
+          </div>
           <div class="row">
             <label>${escapeHtml(this._t("text_size_mode"))}</label>
             <select id="text_size_mode" data-group="display">
@@ -1942,36 +2115,10 @@ class WitHaLovelaceCardEditor extends HTMLElement {
             <div><label>${escapeHtml(this._t("dot_size_ratio"))}</label><input id="dot_size_ratio" data-group="display" type="number" step="0.001" value="${escapeHtml(c.display.dot_size_ratio)}" /></div>
             <div><label>${escapeHtml(this._t("smooth_alpha"))}</label><input id="smooth_alpha" data-group="display" type="number" step="0.01" min="0.01" max="1" value="${escapeHtml(c.display.smooth_alpha)}" /></div>
           </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("background_color"))}</label><input id="background_color" data-group="display" type="color" value="${escapeHtml(color.background_color)}" /></div>
-            <div><label>${escapeHtml(this._t("dot_color"))}</label><input id="dot_color" data-group="display" type="color" value="${escapeHtml(color.dot_color)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("dot_border_color"))}</label><input id="dot_border_color" data-group="display" type="color" value="${escapeHtml(color.dot_border_color)}" /></div>
-            <div><label>${escapeHtml(this._t("crosshair_color"))}</label><input id="crosshair_color" data-group="display" type="color" value="${escapeHtml(color.crosshair_color)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("level_gradient_start"))}</label><input id="level_gradient_start" data-group="display" type="color" value="${escapeHtml(color.level_gradient_start)}" /></div>
-            <div><label>${escapeHtml(this._t("level_gradient_mid"))}</label><input id="level_gradient_mid" data-group="display" type="color" value="${escapeHtml(color.level_gradient_mid)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("level_gradient_end"))}</label><input id="level_gradient_end" data-group="display" type="color" value="${escapeHtml(color.level_gradient_end)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("level_highlight_color"))}</label><input id="level_highlight_color" data-group="display" type="color" value="${escapeHtml(color.level_highlight_color)}" /></div>
-            <div><label>${escapeHtml(this._t("ring_background_color"))}</label><input id="ring_background_color" data-group="display" type="color" value="${escapeHtml(color.ring_background_color)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("ring_tick_color"))}</label><input id="ring_tick_color" data-group="display" type="color" value="${escapeHtml(color.ring_tick_color)}" /></div>
-            <div><label>${escapeHtml(this._t("ring_major_tick_color"))}</label><input id="ring_major_tick_color" data-group="display" type="color" value="${escapeHtml(color.ring_major_tick_color)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("ring_cardinal_color"))}</label><input id="ring_cardinal_color" data-group="display" type="color" value="${escapeHtml(color.ring_cardinal_color)}" /></div>
-            <div><label>${escapeHtml(this._t("level_ok_color"))}</label><input id="level_ok_color" data-group="display" type="color" value="${escapeHtml(color.level_ok_color)}" /></div>
-          </div>
-          <div class="row inline">
-            <div><label>${escapeHtml(this._t("raise_color"))}</label><input id="raise_color" data-group="display" type="color" value="${escapeHtml(color.raise_color)}" /></div>
-            <div><label>${escapeHtml(this._t("text_color"))}</label><input id="text_color" data-group="display" type="color" value="${escapeHtml(color.text_color)}" /></div>
+          <div class="row">
+            <div class="color-grid">
+              ${colorGridHtml}
+            </div>
           </div>
           <div class="row inline">
             <div><label>${escapeHtml(this._t("compass_unreliable_tilt_deg"))}</label><input id="compass_unreliable_tilt_deg" data-group="display" type="number" step="0.1" value="${escapeHtml(c.display.compass_unreliable_tilt_deg)}" /></div>
@@ -1979,6 +2126,7 @@ class WitHaLovelaceCardEditor extends HTMLElement {
           <label class="check"><input id="show_temperature" data-group="display" type="checkbox" ${c.display.show_temperature ? "checked" : ""} /> ${escapeHtml(this._t("show_temperature"))}</label>
           <label class="check"><input id="show_battery" data-group="display" type="checkbox" ${c.display.show_battery ? "checked" : ""} /> ${escapeHtml(this._t("show_battery"))}</label>
           <label class="check"><input id="show_corner_values" data-group="display" type="checkbox" ${c.display.show_corner_values ? "checked" : ""} /> ${escapeHtml(this._t("show_corner_values"))}</label>
+          <label class="check"><input id="show_compass_ring" data-group="display" type="checkbox" ${c.display.show_compass_ring ? "checked" : ""} /> ${escapeHtml(this._t("show_compass_ring"))}</label>
           <label class="check"><input id="show_compass_status" data-group="display" type="checkbox" ${c.display.show_compass_status ? "checked" : ""} /> ${escapeHtml(this._t("show_compass_status"))}</label>
         </div>
 

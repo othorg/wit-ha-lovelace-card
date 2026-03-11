@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.3.1";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -1077,7 +1077,7 @@ class WitHaLovelaceCard extends HTMLElement {
         }
         .rv-svg-container {
           position: absolute;
-          top: 5%; bottom: 8%; left: 20%; right: 20%;
+          top: 2%; bottom: 4%; left: 16%; right: 16%;
         }
         .rv-svg-container svg { width: 100%; height: 100%; display: block; }
         .wheel-indicator {
@@ -1094,8 +1094,14 @@ class WitHaLovelaceCard extends HTMLElement {
         .wheel-indicator.rr { bottom: 14%; right: 3%; }
         .wheel-dot {
           width: 16px; height: 16px;
-          border-radius: 50%;
           box-shadow: 0 0 6px rgba(0,0,0,0.3);
+          border-radius: 50%;
+          background: #00c853;
+          clip-path: none;
+        }
+        .wheel-dot.needs-raise {
+          border-radius: 2px;
+          clip-path: polygon(50% 0%, 100% 58%, 73% 58%, 73% 100%, 27% 100%, 27% 58%, 0% 58%);
         }
         .wheel-value {
           font-family: Arial, sans-serif;
@@ -1353,6 +1359,7 @@ class WitHaLovelaceCard extends HTMLElement {
     const dimStroke = escapeHtml(sanitizeCssColor(this._config.display.text_color, "#111111"));
     return `
       <svg viewBox="0 0 100 150" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(50 75) scale(1.18) translate(-50 -75)">
         <!-- Body outline: rounded front (cab), squarer rear -->
         <path d="M32,30 Q32,14 50,14 Q68,14 68,30 L68,130 Q68,136 62,136 L38,136 Q32,136 32,130 Z"
               fill="rgba(0,0,0,0.04)" stroke="${stroke}" stroke-width="1.6" stroke-linejoin="round" />
@@ -1378,6 +1385,7 @@ class WitHaLovelaceCard extends HTMLElement {
         <rect x="71" y="112" width="8" height="16" rx="3" fill="rgba(80,80,80,0.2)" stroke="${stroke}" stroke-width="1" />
         <!-- Rear bumper hint -->
         <line x1="36" y1="136" x2="64" y2="136" stroke="${stroke}" stroke-width="0.8" opacity="0.4" />
+        </g>
       </svg>
     `;
   }
@@ -1464,6 +1472,7 @@ class WitHaLovelaceCard extends HTMLElement {
           text-align: left;
           justify-self: start;
         }
+        .head-icon { margin-right: 3px; }
         .title {
           position: absolute;
           left: 50%;
@@ -1629,15 +1638,24 @@ class WitHaLovelaceCard extends HTMLElement {
           height: 10px;
           border-radius: 50%;
           background: #00c853;
+          clip-path: none;
+        }
+        .corner-cell .corner-indicator.needs-raise {
+          border-radius: 2px;
+          clip-path: polygon(50% 0%, 100% 58%, 73% 58%, 73% 100%, 27% 100%, 27% 58%, 0% 58%);
         }
       </style>
       <ha-card>
         <div class="wrapper round">
           <img class="round-bg" alt="" />
           <div class="round-head">
-            <div class="head-value left clickable temp" data-entity-key="temperature"></div>
+            <div class="head-value left clickable temp" data-entity-key="temperature">
+              <span class="head-icon">\u{1F321}</span><span class="head-text"></span>
+            </div>
             <div class="title"></div>
-            <div class="head-value right clickable batt" data-entity-key="battery_soc"></div>
+            <div class="head-value right clickable batt" data-entity-key="battery_soc">
+              <span class="head-icon">\u{1F50B}</span><span class="head-text"></span>
+            </div>
           </div>
           <div class="round-overlay">
           <div class="compass-wrapper">
@@ -1701,7 +1719,9 @@ class WitHaLovelaceCard extends HTMLElement {
       roundBg: this.shadowRoot.querySelector(".round-bg"),
       roundOverlay: this.shadowRoot.querySelector(".round-overlay"),
       temp: this.shadowRoot.querySelector(".temp"),
+      tempText: this.shadowRoot.querySelector(".temp .head-text"),
       batt: this.shadowRoot.querySelector(".batt"),
+      battText: this.shadowRoot.querySelector(".batt .head-text"),
       title: this.shadowRoot.querySelector(".title"),
       ringRotor: this.shadowRoot.querySelector(".ring-rotor"),
       compassIndex: this.shadowRoot.querySelector(".compass-index"),
@@ -1782,6 +1802,7 @@ class WitHaLovelaceCard extends HTMLElement {
     const applyWheel = (dotNode, valNode, corner) => {
       dotNode.parentElement.hidden = !showCorners;
       if (!showCorners) return;
+      dotNode.classList.toggle("needs-raise", !corner.levelOk);
       dotNode.style.background = corner.levelOk
         ? this._config.display.level_ok_color
         : this._config.display.raise_color;
@@ -1886,8 +1907,8 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.title.style.color = this._config.display.text_color;
     this._nodes.temp.hidden = !this._config.display.show_temperature;
     this._nodes.batt.hidden = !this._config.display.show_battery;
-    this._nodes.temp.textContent = this._buildHeadValue(model.tempText);
-    this._nodes.batt.textContent = this._buildHeadValue(model.battText);
+    this._nodes.tempText.textContent = this._buildHeadValue(model.tempText);
+    this._nodes.battText.textContent = this._buildHeadValue(model.battText);
     this._nodes.temp.style.fontSize = `${infoPx}px`;
     this._nodes.batt.style.fontSize = `${infoPx}px`;
     this._nodes.temp.style.color = this._config.display.text_color;
@@ -1965,6 +1986,7 @@ class WitHaLovelaceCard extends HTMLElement {
       valueNode.style.color = this._config.display.text_color;
       const keyNode = cellNode.querySelector(".corner-key");
       keyNode.style.color = this._config.display.text_color;
+      indicatorNode.classList.toggle("needs-raise", !corner.levelOk);
       indicatorNode.style.background = corner.levelOk
         ? this._config.display.level_ok_color
         : this._config.display.raise_color;

@@ -9,6 +9,13 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.1] - 2026-03-11
+
+### Changed
+- `round_compass` header now uses the same temperature/battery icons as `rv_top` (`🌡`, `🔋`).
+- Leveling point markers now use upward arrows for raise-required points (red), while leveled points remain circles (green), in both display modes.
+- `rv_top` motorhome SVG was proportionally upscaled and the container adjusted so side walls align better with the mini-compass outer radius.
+
 ## [0.3.0] - 2026-03-11
 
 ### Changed

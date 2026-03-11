@@ -7,7 +7,37 @@ All notable changes to this project are documented in this file and in GitHub Re
 ## [Unreleased]
 
 ### Changed
-- README preview image now points to `assets/rv-compass-spirit-level.png`.
+- No changes yet.
+
+## [0.3.0] - 2026-03-11
+
+### Changed
+- **Breaking:** Complete redesign of `rv_top` display mode.
+  - Replaced static PNG background (`rv_top_flair.png`) with dynamic inline SVG motorhome schematic.
+  - Leveling indicators now shown as colored dots (green/red) at wheel positions with raise values.
+  - Embedded mini-compass (ring + level bubble + crosshairs) in the vehicle center.
+  - Angle displays (X/Y) positioned outside the vehicle (right and below).
+  - Temperature and battery shown in header with Unicode emoji icons.
+- Generalized smoothing/animation system: now active in both `rv_top` and `round_compass` modes.
+- Removed dependency on external `rv_top_flair.png` image and fallback URL chain.
+- Card aspect ratio changed from `550/1093` to `5/6` for `rv_top` mode.
+
+### Added
+- `_buildRvTopSvg()`: Dynamic SVG generation for motorhome top-down view.
+- `_ensureRvTopSvg()`: Color-signature-based SVG caching for rv_top.
+- `_ensureMiniRingSvg()`: Compass ring SVG caching for mini-compass in rv_top.
+- `_renderRvTopDynamic()`: Per-frame rendering for mini-compass animation.
+- `show_compass_ring` now controls the mini-compass ring in rv_top mode too.
+
+### Removed
+- `DEFAULT_IMAGE_CANDIDATES` and image fallback URL chain.
+- `_resolveImageUrl()` and `_onImageError` methods.
+- `DOT_CENTER_X_RATIO` / `DOT_CENTER_Y_RATIO` constants.
+- Old rv_top CSS (`.overlay`, `.bubble-zone`, `.corner`, `.marker` classes).
+
+### Tests
+- Added tests for `_buildRvTopSvg()` SVG generation and color configuration.
+- All 27 tests passing.
 
 ## [0.2.10] - 2026-03-11
 

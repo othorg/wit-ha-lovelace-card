@@ -10,13 +10,13 @@ The card is sensor-source agnostic: it works with any Home Assistant entities th
 
 ## Status
 
-Current release line: `0.2.x` with dual visualization modes and full editor-based configuration.
+Current release line: `0.3.x` with dual visualization modes and full editor-based configuration.
 
 ## Features
 
 - Two display modes:
-  - `rv_top` (existing RV top visualization)
-  - `round_compass` (new circular level + compass ring)
+  - `rv_top` (dynamic inline SVG motorhome top-view with wheel-level indicators and embedded mini-compass)
+  - `round_compass` (circular level target + rotating compass ring)
 - Frontend configuration via Lovelace card editor (no mandatory YAML mapping)
 - Configurable entities:
   - pitch
@@ -183,8 +183,8 @@ To publish updates so HACS can reliably detect new versions:
 
 ## Assets
 
-- Base image: `assets/rv_top_flair.png`
 - Preview image: `assets/rv-compass-spirit-level.png`
+- SVG reference: `assets/rv-level-rv-top.svg`
 - Icon: `assets/rv-level-icon.svg`
 - Branding PNGs: `brand/rv-level-icon*.png`, `brand/rv-level-logo*.png`, `brand/rv-level-logo-dark*.png`
 

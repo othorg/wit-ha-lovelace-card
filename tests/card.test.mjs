@@ -481,3 +481,99 @@ test("custom card metadata is registered", () => {
   assert.equal(runtime.customCards[0].type, "wit-ha-lovelace-card");
   assert.equal(runtime.customCards[0].preview, false);
 });
+
+test("rv_top mode builds SVG motorhome drawing", () => {
+  const runtime = loadRuntime();
+  const CardClass = runtime.registry.get("wit-ha-lovelace-card");
+  const card = new CardClass();
+  card._render = () => {};
+  card.setConfig({ type: "custom:wit-ha-lovelace-card", display: { mode: "rv_top" } });
+  const svg = card._buildRvTopSvg();
+  assert.ok(svg.includes("<svg"), "should contain opening svg tag");
+  assert.ok(svg.includes("viewBox"), "should have a viewBox");
+  assert.ok(svg.includes("<path"), "should contain path elements for body");
+  assert.ok(svg.includes("<rect"), "should contain rect elements for wheels/windows");
+});
+
+test("rv_top SVG uses configured text_color for stroke", () => {
+  const runtime = loadRuntime();
+  const CardClass = runtime.registry.get("wit-ha-lovelace-card");
+  const card = new CardClass();
+  card._render = () => {};
+  card.setConfig({ type: "custom:wit-ha-lovelace-card", display: { mode: "rv_top", text_color: "#ff0000" } });
+  const svg1 = card._buildRvTopSvg();
+  assert.ok(svg1.includes("#ff0000"), "should use configured stroke color");
+  card.setConfig({ type: "custom:wit-ha-lovelace-card", display: { mode: "rv_top", text_color: "#0000ff" } });
+  const svg2 = card._buildRvTopSvg();
+  assert.ok(svg2.includes("#0000ff"), "should use updated stroke color");
+});
+
+test("normalizeConfig show_angle_panel defaults to true and accepts false", () => {
+  const runtime = loadRuntime();
+  const defaultCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top" },
+  });
+  assert.equal(defaultCfg.display.show_angle_panel, true);
+
+  const offCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top", show_angle_panel: false },
+  });
+  assert.equal(offCfg.display.show_angle_panel, false);
+});
+
+test("normalizeConfig show_corner_values defaults to true and accepts false", () => {
+  const runtime = loadRuntime();
+  const defaultCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top" },
+  });
+  assert.equal(defaultCfg.display.show_corner_values, true);
+
+  const offCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top", show_corner_values: false },
+  });
+  assert.equal(offCfg.display.show_corner_values, false);
+});
+
+test("normalizeConfig show_compass_ring defaults to true and accepts false for rv_top", () => {
+  const runtime = loadRuntime();
+  const defaultCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top" },
+  });
+  assert.equal(defaultCfg.display.show_compass_ring, true);
+
+  const offCfg = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top", show_compass_ring: false },
+  });
+  assert.equal(offCfg.display.show_compass_ring, false);
+});
+
+test("rv_top mode smoothing system is not blocked by mode guard", () => {
+  const runtime = loadRuntime();
+  const CardClass = runtime.registry.get("wit-ha-lovelace-card");
+  const card = new CardClass();
+  card._render = () => {};
+  card.setConfig({ type: "custom:wit-ha-lovelace-card", display: { mode: "rv_top" } });
+  card._config = runtime.api.normalizeConfig({
+    type: "custom:wit-ha-lovelace-card",
+    display: { mode: "rv_top" },
+    entities: { pitch: "sensor.pitch", roll: "sensor.roll" },
+  });
+  card._hass = {
+    states: {
+      "sensor.pitch": { state: "1.0" },
+      "sensor.roll": { state: "-0.5" },
+    },
+  };
+  const model = card._buildModel();
+  assert.equal(model.valid, true);
+  // syncRoundTargets should work for rv_top (no mode guard)
+  card._syncRoundTargets(model);
+  assert.ok(card._roundModel, "smoothing model should be set for rv_top");
+  assert.equal(card._roundModel.valid, true);
+});

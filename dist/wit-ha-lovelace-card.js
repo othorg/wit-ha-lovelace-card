@@ -1,6 +1,6 @@
 const CARD_TYPE = "wit-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.2.10";
+const CARD_VERSION = "0.3.0";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -231,8 +231,6 @@ const TEXT_SIZE_MODE_FACTORS = {
 };
 
 const MAX_LEVELING_TILT_DEG = 30;
-const DOT_CENTER_X_RATIO = 0.5;
-const DOT_CENTER_Y_RATIO = 0.495;
 const ROUND_CENTER_X_RATIO = 0.5;
 const ROUND_CENTER_Y_RATIO = 0.5;
 
@@ -267,23 +265,6 @@ function uniq(values) {
 }
 
 const SCRIPT_BASE = detectScriptBasePath();
-const DEFAULT_IMAGE_CANDIDATES = uniq([
-  SCRIPT_BASE ? `${SCRIPT_BASE}/rv_top_flair.png` : "",
-  "/hacsfiles/rv-level-ha-lovelace-card/rv_top_flair.png",
-  "/local/community/rv-level-ha-lovelace-card/rv_top_flair.png",
-  "/local/rv-level-ha-lovelace-card/rv_top_flair.png",
-  "/hacsfiles/wit-ha-lovelace-card/rv_top_flair.png",
-  "/local/community/wit-ha-lovelace-card/rv_top_flair.png",
-  "/local/wit-ha-lovelace-card/rv_top_flair.png",
-  SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-rv-top.svg` : "",
-  "/hacsfiles/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
-  "/local/community/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
-  "/local/rv-level-ha-lovelace-card/rv-level-rv-top.svg",
-  "/hacsfiles/wit-ha-lovelace-card/rv-level-rv-top.svg",
-  "/local/community/wit-ha-lovelace-card/rv-level-rv-top.svg",
-  "/local/wit-ha-lovelace-card/rv-level-rv-top.svg",
-]);
-
 const DEFAULT_ICON_CANDIDATES = uniq([
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-icon.svg` : "",
   SCRIPT_BASE ? `${SCRIPT_BASE}/rv-level-icon.png` : "",
@@ -664,7 +645,6 @@ class WitHaLovelaceCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._hass = undefined;
     this._config = normalizeConfig({});
-    this._imageIdx = 0;
     this._domReady = false;
     this._nodes = {};
     this._currentMode = this._config.display.mode;
@@ -711,8 +691,9 @@ class WitHaLovelaceCard extends HTMLElement {
       this._nodes = {};
     }
     this._cachedTrackedEntityIds = null;
-    this._imageIdx = 0;
     this._roundColorSignature = "";
+    this._miniRingColorSignature = "";
+    this._rvTopSvgSignature = "";
     this._roundModel = null;
     this._smoothState = { pitch: null, roll: null, heading: null };
     this._smoothTarget = { pitch: null, roll: null, heading: null };
@@ -737,9 +718,6 @@ class WitHaLovelaceCard extends HTMLElement {
     if (this._nodes.wrapper) {
       this._nodes.wrapper.removeEventListener("click", this._boundWrapperClick);
     }
-    if (this._nodes.img) {
-      this._nodes.img.onerror = null;
-    }
     this._domReady = false;
   }
 
@@ -752,9 +730,9 @@ class WitHaLovelaceCard extends HTMLElement {
       const headerHeight = 56;
       return Math.max(8, Math.ceil((compassHeight + valuePanelHeight + headerHeight) / 50));
     }
-    const imageHeight = (width * 1093) / 550;
+    const bodyHeight = (width * 6) / 5;
     const headerHeight = 56;
-    return Math.max(8, Math.ceil((imageHeight + headerHeight) / 50));
+    return Math.max(8, Math.ceil((bodyHeight + headerHeight) / 50));
   }
 
   _lang() {
@@ -764,22 +742,6 @@ class WitHaLovelaceCard extends HTMLElement {
   _t(key) {
     return t(this._lang(), key);
   }
-
-  _resolveImageUrl() {
-    if (this._config.image) return this._config.image;
-    const idx = Math.max(0, Math.min(DEFAULT_IMAGE_CANDIDATES.length - 1, this._imageIdx));
-    return DEFAULT_IMAGE_CANDIDATES[idx] || "";
-  }
-
-  _onImageError = () => {
-    if (this._config.image) return;
-    if (this._imageIdx < DEFAULT_IMAGE_CANDIDATES.length - 1) {
-      this._imageIdx += 1;
-      this._render();
-      return;
-    }
-    console.error(`${CARD_NAME}: failed to load base image`, DEFAULT_IMAGE_CANDIDATES);
-  };
 
   _emitMoreInfo(entityId) {
     if (!entityId) return;
@@ -970,15 +932,15 @@ class WitHaLovelaceCard extends HTMLElement {
     }
   }
 
-  _startRoundAnimationLoop() {
-    if (this._rafId || this._config.display.mode !== "round_compass") return;
+  _startAnimationLoop() {
+    if (this._rafId) return;
     if (typeof requestAnimationFrame !== "function") {
-      this._renderRoundDynamic();
+      this._dispatchDynamicRender();
       return;
     }
     const tick = (ts) => {
       this._rafId = 0;
-      if (!this._domReady || this._config.display.mode !== "round_compass" || !this._roundModel) return;
+      if (!this._domReady || !this._roundModel) return;
 
       const prevTs = this._lastRafTs || ts;
       const dt = Math.max(1, Math.min(120, ts - prevTs));
@@ -1005,7 +967,7 @@ class WitHaLovelaceCard extends HTMLElement {
         moving = true;
       }
 
-      this._renderRoundDynamic();
+      this._dispatchDynamicRender();
       if (moving) {
         this._rafId = requestAnimationFrame(tick);
       }
@@ -1059,185 +1021,285 @@ class WitHaLovelaceCard extends HTMLElement {
       <style>
         :host { display: block; }
         ha-card { overflow: hidden; }
-        .wrapper {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 550 / 1093;
+        .wrapper.rv-top {
+          display: flex;
+          flex-direction: column;
           background: #9bc4d6;
           border-radius: 16px;
-          overflow: hidden;
+          padding: 14px 12px;
+          box-sizing: border-box;
         }
-        img.base {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          pointer-events: none;
+        .rv-top-head {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+          min-height: 32px;
         }
-        .overlay {
-          position: absolute;
-          color: #111;
-          text-shadow: 0 0 4px rgba(255,255,255,0.92);
+        .head-value {
           font-family: Arial, sans-serif;
-          z-index: 2;
+          color: #111;
+          font-size: 14px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          min-width: 60px;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
         }
-        .clickable { cursor: pointer; }
-        .temp { top: 2%; left: 7%; font-size: 14px; text-align: left; }
-        .batt { top: 2%; right: 7%; font-size: 14px; text-align: right; }
-        .title {
-          top: 8%;
-          left: 50%;
-          transform: translateX(-50%);
+        .head-value.right { grid-column: 2; text-align: right; justify-self: end; }
+        .head-value.left { grid-column: 1; text-align: left; justify-self: start; }
+        .head-icon { margin-right: 3px; }
+        .rv-title {
+          position: absolute;
+          left: 50%; top: 50%;
+          transform: translate(-50%, -50%);
+          font-family: Arial, sans-serif;
+          color: #111;
+          text-align: center;
           font-size: 18px;
           font-weight: 500;
           white-space: nowrap;
-          max-width: 92%;
           overflow: hidden;
           text-overflow: ellipsis;
-          text-align: center;
+          max-width: 54%;
+          pointer-events: none;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
         }
-        .pitch {
-          bottom: 8%;
-          left: 51%;
-          transform: translateX(-50%);
-          font-size: 26px;
-          font-weight: 500;
-          text-align: center;
+        .clickable { cursor: pointer; }
+        .rv-top-body {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 5 / 6;
         }
-        .roll {
-          right: 5%;
-          top: 50%;
-          transform: translateY(-50%);
-          font-size: 26px;
-          font-weight: 500;
-          text-align: right;
-        }
-        .dot {
+        .rv-svg-container {
           position: absolute;
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: #ff1b1b;
-          border: 2px solid #2f2828;
-          box-shadow: 0 0 8px rgba(0,0,0,0.5);
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
+          top: 5%; bottom: 8%; left: 20%; right: 20%;
+        }
+        .rv-svg-container svg { width: 100%; height: 100%; display: block; }
+        .wheel-indicator {
+          position: absolute;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
           z-index: 3;
+        }
+        .wheel-indicator.fl { top: 13%; left: 3%; }
+        .wheel-indicator.fr { top: 13%; right: 3%; }
+        .wheel-indicator.rl { bottom: 14%; left: 3%; }
+        .wheel-indicator.rr { bottom: 14%; right: 3%; }
+        .wheel-dot {
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          box-shadow: 0 0 6px rgba(0,0,0,0.3);
+        }
+        .wheel-value {
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          white-space: nowrap;
+          text-align: center;
+        }
+        .mini-compass {
+          position: absolute;
+          left: 50%; top: 48%;
+          transform: translate(-50%, -50%);
+          width: 42%;
+          aspect-ratio: 1 / 1;
+          z-index: 2;
+        }
+        .mini-ring-rotor {
+          position: absolute;
+          inset: 0;
+          transform: rotate(0deg);
+          transform-origin: 50% 50%;
+        }
+        .mini-ring-rotor svg { width: 100%; height: 100%; display: block; }
+        .mini-compass-index {
+          position: absolute;
+          left: 50%; top: 2%;
+          transform: translateX(-50%);
+          width: 0; height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-bottom: 9px solid #f4f091;
+          filter: drop-shadow(0 0 1px rgba(0,0,0,0.8));
+          z-index: 4;
+        }
+        .mini-level-circle {
+          position: absolute;
+          left: 50%; top: 50%;
+          width: 62%; height: 62%;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background:
+            radial-gradient(circle at 50% 36%, rgba(255,255,255,0.42), rgba(255,255,255,0) 35%),
+            radial-gradient(circle at 50% 50%, #e8ff84 0%, #d6ee65 46%, #c3de41 100%);
+          border: 1.5px solid rgba(18,24,16,0.72);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.24), 0 0 8px rgba(0,0,0,0.3);
+          overflow: hidden;
+          z-index: 3;
+        }
+        .mini-level-ring {
+          position: absolute;
+          left: 50%; top: 50%;
+          border: 1px solid rgba(255,255,255,0.35);
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+        }
+        .mini-level-ring.r1 { width: 88%; height: 88%; }
+        .mini-level-ring.r2 { width: 62%; height: 62%; }
+        .mini-level-ring.r3 { width: 34%; height: 34%; }
+        .mini-cross {
+          position: absolute;
+          background: rgba(20,27,19,0.6);
+        }
+        .mini-cross.v { top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-50%); }
+        .mini-cross.h { left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-50%); }
+        .mini-dot {
+          position: absolute;
+          width: 22px; height: 22px;
+          border-radius: 50%;
+          background: #ff2a1f;
+          border: 1.5px solid #2a211f;
+          box-shadow: 0 0 6px rgba(0,0,0,0.4);
+          left: 50%; top: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 4;
           pointer-events: none;
           box-sizing: border-box;
           clip-path: circle(50% at 50% 50%);
         }
-        .bubble-zone {
+        .angle-display {
           position: absolute;
-          left: 50%;
-          top: 49%;
-          width: 120px;
-          height: 120px;
-          transform: translate(-50%, -50%);
-          z-index: 2;
-          pointer-events: none;
-          background: transparent;
-        }
-        .corner {
-          position: absolute;
-          width: 10%;
-          text-align: center;
+          font-family: Arial, sans-serif;
           z-index: 3;
-        }
-        .corner.fl { top: 27%; left: 18%; transform: translate(-50%, -50%); }
-        .corner.fr { top: 27%; right: 18%; transform: translate(50%, -50%); }
-        .corner.rl { bottom: 30%; left: 18%; transform: translate(-50%, 50%); }
-        .corner.rr { bottom: 30%; right: 18%; transform: translate(50%, 50%); }
-        .corner .marker {
-          margin: 0 auto;
-          width: 100%;
-          aspect-ratio: 1 / 1;
-        }
-        .corner .marker.level {
-          border-radius: 50%;
-          background: #00c853;
-          box-shadow: 0 0 8px rgba(0,0,0,0.45);
-        }
-        .corner .marker.raise {
-          width: 0;
-          height: 0;
-          border-left: 1.8vw solid transparent;
-          border-right: 1.8vw solid transparent;
-          border-bottom: 2.9vw solid #ff1744;
-        }
-        .corner-value {
-          position: absolute;
-          font-size: 16px;
-          font-weight: 500;
-          color: #111;
-          text-shadow: 0 0 4px rgba(255,255,255,0.92);
-          z-index: 2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
           text-align: center;
         }
-        .cv-fl { top: 31%; left: 18%; transform: translate(-50%, -50%); }
-        .cv-fr { top: 31%; right: 18%; transform: translate(50%, -50%); }
-        .cv-rl { bottom: 24%; left: 18%; transform: translate(-50%, 50%); }
-        .cv-rr { bottom: 24%; right: 18%; transform: translate(50%, 50%); }
+        .angle-display .angle-label {
+          display: block;
+          font-size: 11px;
+          opacity: 0.7;
+          margin-bottom: 2px;
+        }
+        .angle-display .angle-value {
+          display: block;
+          font-size: 18px;
+          font-weight: 500;
+          font-variant-numeric: tabular-nums;
+        }
+        .angle-display.angle-x {
+          right: 1%;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+        .angle-display.angle-y {
+          bottom: 1%;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        .rv-top-status {
+          margin-top: 6px;
+          font-family: Arial, sans-serif;
+          color: #111;
+          font-size: 13px;
+          text-align: center;
+          min-height: 18px;
+          line-height: 1.2;
+        }
       </style>
       <ha-card>
-        <div class="wrapper">
-          <img class="base" alt="" />
-          <div class="overlay temp clickable" data-entity-key="temperature"></div>
-          <div class="overlay batt clickable" data-entity-key="battery_soc"></div>
-          <div class="overlay title"></div>
-          <div class="overlay pitch clickable" data-entity-key="pitch"></div>
-          <div class="overlay roll clickable" data-entity-key="roll"></div>
-          <div class="bubble-zone">
-            <div class="dot"></div>
+        <div class="wrapper rv-top">
+          <div class="rv-top-head">
+            <div class="head-value left clickable temp" data-entity-key="temperature">
+              <span class="head-icon">\u{1F321}</span><span class="head-text"></span>
+            </div>
+            <div class="rv-title"></div>
+            <div class="head-value right clickable batt" data-entity-key="battery_soc">
+              <span class="head-icon">\u{1F50B}</span><span class="head-text"></span>
+            </div>
           </div>
+          <div class="rv-top-body">
+            <div class="rv-svg-container">${this._buildRvTopSvg()}</div>
 
-          <div class="corner fl"><div class="marker"></div></div>
-          <div class="corner fr"><div class="marker"></div></div>
-          <div class="corner rl"><div class="marker"></div></div>
-          <div class="corner rr"><div class="marker"></div></div>
+            <div class="wheel-indicator fl">
+              <span class="wheel-dot"></span>
+              <span class="wheel-value"></span>
+            </div>
+            <div class="wheel-indicator fr">
+              <span class="wheel-dot"></span>
+              <span class="wheel-value"></span>
+            </div>
+            <div class="wheel-indicator rl">
+              <span class="wheel-dot"></span>
+              <span class="wheel-value"></span>
+            </div>
+            <div class="wheel-indicator rr">
+              <span class="wheel-dot"></span>
+              <span class="wheel-value"></span>
+            </div>
 
-          <div class="corner-value cv-fl"></div>
-          <div class="corner-value cv-fr"></div>
-          <div class="corner-value cv-rl"></div>
-          <div class="corner-value cv-rr"></div>
+            <div class="mini-compass">
+              <div class="mini-ring-rotor">${this._buildCompassRingSvg()}</div>
+              <div class="mini-compass-index"></div>
+              <div class="mini-level-circle">
+                <div class="mini-level-ring r1"></div>
+                <div class="mini-level-ring r2"></div>
+                <div class="mini-level-ring r3"></div>
+                <div class="mini-cross v"></div>
+                <div class="mini-cross h"></div>
+                <div class="mini-dot"></div>
+              </div>
+            </div>
+
+            <div class="angle-display angle-x clickable" data-entity-key="pitch">
+              <span class="angle-label"></span>
+              <span class="angle-value"></span>
+            </div>
+            <div class="angle-display angle-y clickable" data-entity-key="roll">
+              <span class="angle-label"></span>
+              <span class="angle-value"></span>
+            </div>
+          </div>
+          <div class="rv-top-status"></div>
         </div>
       </ha-card>
     `;
 
     const wrapper = this.shadowRoot.querySelector(".wrapper");
-    const nodes = {
-      mode: "rv_top",
-      wrapper,
-      img: this.shadowRoot.querySelector("img.base"),
-      temp: this.shadowRoot.querySelector(".temp"),
-      batt: this.shadowRoot.querySelector(".batt"),
-      title: this.shadowRoot.querySelector(".title"),
-      pitch: this.shadowRoot.querySelector(".pitch"),
-      roll: this.shadowRoot.querySelector(".roll"),
-      bubbleZone: this.shadowRoot.querySelector(".bubble-zone"),
-      dot: this.shadowRoot.querySelector(".dot"),
-      flm: this.shadowRoot.querySelector(".corner.fl .marker"),
-      frm: this.shadowRoot.querySelector(".corner.fr .marker"),
-      rlm: this.shadowRoot.querySelector(".corner.rl .marker"),
-      rrm: this.shadowRoot.querySelector(".corner.rr .marker"),
-      flv: this.shadowRoot.querySelector(".cv-fl"),
-      frv: this.shadowRoot.querySelector(".cv-fr"),
-      rlv: this.shadowRoot.querySelector(".cv-rl"),
-      rrv: this.shadowRoot.querySelector(".cv-rr"),
-    };
-
-    nodes.img.onerror = this._onImageError;
     wrapper.addEventListener("click", this._boundWrapperClick);
 
-    this._nodes = nodes;
+    this._nodes = {
+      mode: "rv_top",
+      wrapper,
+      temp: this.shadowRoot.querySelector(".temp"),
+      tempText: this.shadowRoot.querySelector(".temp .head-text"),
+      batt: this.shadowRoot.querySelector(".batt"),
+      battText: this.shadowRoot.querySelector(".batt .head-text"),
+      title: this.shadowRoot.querySelector(".rv-title"),
+      rvSvgContainer: this.shadowRoot.querySelector(".rv-svg-container"),
+      wheelDotFL: this.shadowRoot.querySelector(".wheel-indicator.fl .wheel-dot"),
+      wheelDotFR: this.shadowRoot.querySelector(".wheel-indicator.fr .wheel-dot"),
+      wheelDotRL: this.shadowRoot.querySelector(".wheel-indicator.rl .wheel-dot"),
+      wheelDotRR: this.shadowRoot.querySelector(".wheel-indicator.rr .wheel-dot"),
+      wheelValFL: this.shadowRoot.querySelector(".wheel-indicator.fl .wheel-value"),
+      wheelValFR: this.shadowRoot.querySelector(".wheel-indicator.fr .wheel-value"),
+      wheelValRL: this.shadowRoot.querySelector(".wheel-indicator.rl .wheel-value"),
+      wheelValRR: this.shadowRoot.querySelector(".wheel-indicator.rr .wheel-value"),
+      miniRingRotor: this.shadowRoot.querySelector(".mini-ring-rotor"),
+      miniCompassIndex: this.shadowRoot.querySelector(".mini-compass-index"),
+      miniLevelCircle: this.shadowRoot.querySelector(".mini-level-circle"),
+      miniDot: this.shadowRoot.querySelector(".mini-dot"),
+      angleXLabel: this.shadowRoot.querySelector(".angle-x .angle-label"),
+      angleXValue: this.shadowRoot.querySelector(".angle-x .angle-value"),
+      angleYLabel: this.shadowRoot.querySelector(".angle-y .angle-label"),
+      angleYValue: this.shadowRoot.querySelector(".angle-y .angle-value"),
+      compassStatus: this.shadowRoot.querySelector(".rv-top-status"),
+    };
     this._domReady = true;
   }
 
@@ -1284,6 +1346,64 @@ class WitHaLovelaceCard extends HTMLElement {
         ${labels.join("")}
       </svg>
     `;
+  }
+
+  _buildRvTopSvg() {
+    const stroke = escapeHtml(this._config.display.text_color);
+    const dimStroke = escapeHtml(sanitizeCssColor(this._config.display.text_color, "#111111"));
+    return `
+      <svg viewBox="0 0 100 150" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <!-- Body outline: rounded front (cab), squarer rear -->
+        <path d="M32,30 Q32,14 50,14 Q68,14 68,30 L68,130 Q68,136 62,136 L38,136 Q32,136 32,130 Z"
+              fill="rgba(0,0,0,0.04)" stroke="${stroke}" stroke-width="1.6" stroke-linejoin="round" />
+        <!-- Cab divider -->
+        <line x1="33" y1="44" x2="67" y2="44" stroke="${stroke}" stroke-width="0.7" opacity="0.5" />
+        <!-- Windshield -->
+        <rect x="38" y="20" width="24" height="16" rx="4" fill="rgba(120,170,200,0.25)" stroke="${stroke}" stroke-width="0.8" />
+        <!-- Headlights -->
+        <circle cx="36" cy="17" r="2.5" fill="rgba(255,250,200,0.35)" stroke="${stroke}" stroke-width="0.6" />
+        <circle cx="64" cy="17" r="2.5" fill="rgba(255,250,200,0.35)" stroke="${stroke}" stroke-width="0.6" />
+        <!-- Side windows -->
+        <rect x="32.5" y="54" width="2.5" height="14" rx="1" fill="rgba(120,170,200,0.2)" stroke="${dimStroke}" stroke-width="0.5" opacity="0.6" />
+        <rect x="32.5" y="76" width="2.5" height="14" rx="1" fill="rgba(120,170,200,0.2)" stroke="${dimStroke}" stroke-width="0.5" opacity="0.6" />
+        <rect x="65" y="54" width="2.5" height="14" rx="1" fill="rgba(120,170,200,0.2)" stroke="${dimStroke}" stroke-width="0.5" opacity="0.6" />
+        <rect x="65" y="76" width="2.5" height="14" rx="1" fill="rgba(120,170,200,0.2)" stroke="${dimStroke}" stroke-width="0.5" opacity="0.6" />
+        <!-- Door (right rear) -->
+        <rect x="65.5" y="100" width="2.5" height="20" rx="1" fill="none" stroke="${dimStroke}" stroke-width="0.5" opacity="0.5" />
+        <path d="M68,100 Q73,110 68,120" fill="none" stroke="${dimStroke}" stroke-width="0.4" opacity="0.35" />
+        <!-- Wheels -->
+        <rect x="21" y="24" width="8" height="16" rx="3" fill="rgba(80,80,80,0.2)" stroke="${stroke}" stroke-width="1" />
+        <rect x="71" y="24" width="8" height="16" rx="3" fill="rgba(80,80,80,0.2)" stroke="${stroke}" stroke-width="1" />
+        <rect x="21" y="112" width="8" height="16" rx="3" fill="rgba(80,80,80,0.2)" stroke="${stroke}" stroke-width="1" />
+        <rect x="71" y="112" width="8" height="16" rx="3" fill="rgba(80,80,80,0.2)" stroke="${stroke}" stroke-width="1" />
+        <!-- Rear bumper hint -->
+        <line x1="36" y1="136" x2="64" y2="136" stroke="${stroke}" stroke-width="0.8" opacity="0.4" />
+      </svg>
+    `;
+  }
+
+  _ensureRvTopSvg() {
+    const sig = this._config.display.text_color;
+    if (sig === this._rvTopSvgSignature) return;
+    this._rvTopSvgSignature = sig;
+    if (this._nodes.rvSvgContainer) {
+      this._nodes.rvSvgContainer.innerHTML = this._buildRvTopSvg();
+    }
+  }
+
+  _ensureMiniRingSvg() {
+    const d = this._config.display;
+    const sig = [
+      d.ring_background_color,
+      d.ring_tick_color,
+      d.ring_major_tick_color,
+      d.ring_cardinal_color,
+    ].join("|");
+    if (sig === this._miniRingColorSignature) return;
+    this._miniRingColorSignature = sig;
+    if (this._nodes.miniRingRotor) {
+      this._nodes.miniRingRotor.innerHTML = this._buildCompassRingSvg();
+    }
   }
 
   _ensureDomRoundCompass() {
@@ -1604,139 +1724,143 @@ class WitHaLovelaceCard extends HTMLElement {
     this._domReady = true;
   }
 
+  _dispatchDynamicRender() {
+    if (this._config.display.mode === "round_compass") {
+      this._renderRoundDynamic();
+    } else {
+      this._renderRvTopDynamic();
+    }
+  }
+
   _update() {
     if (!this._domReady) return;
     if (this._config.display.mode === "round_compass") {
       this._updateRoundCompass();
       return;
     }
-    this._stopAnimationLoop();
     this._updateRvTop();
   }
 
   _updateRvTop() {
     const title = String(this._config.title || "").trim();
     const model = this._buildModel();
-    const width = this._nodes.wrapper?.clientWidth || this._nodes.wrapper?.offsetWidth || 550;
-    const height = this._nodes.wrapper?.clientHeight || Math.round((width * 1093) / 550);
-    const autoScale = clampNumber(width / 550, 0.56, 1.02, 1);
-    const modeScale = this._textModeFactor();
-    const scale = clampNumber(autoScale * modeScale, 0.52, 1.25, 1);
+    this._syncRoundTargets(model);
 
-    const titlePx = clampInt(18 * scale, 12, Math.min(width * 0.062, height * 0.032));
-    const infoPx = clampInt(14 * scale, 10, Math.min(width * 0.05, height * 0.025));
-    const anglePx = clampInt(26 * scale, 15, Math.min(width * 0.066, height * 0.034));
-    const cornerPx = clampInt(16 * scale, 10, Math.min(width * 0.034, height * 0.018));
-    const levelMarkerPx = clampInt(46 * scale, 18, Math.min(width * 0.13, height * 0.07));
-    const raiseHalfPx = clampInt(levelMarkerPx * 0.4, 8, Math.max(12, Math.round(width * 0.055)));
-    const raiseHeightPx = clampInt(levelMarkerPx * 0.72, 12, Math.max(18, Math.round(height * 0.04)));
-
-    const titleMaxWidthPx = clampInt(width * 0.78, 160, width * 0.92);
-    const topMaxWidthPx = clampInt(width * 0.32, 80, width * 0.38);
-    const pitchMaxWidthPx = clampInt(width * 0.38, 110, width * 0.5);
-    const rollMaxWidthPx = clampInt(width * 0.3, 90, width * 0.42);
-    const cornerMaxWidthPx = clampInt(width * 0.24, 72, width * 0.3);
-
-    const imageUrl = this._resolveImageUrl();
-    if (this._nodes.img?.dataset.src !== imageUrl) {
-      this._nodes.img.dataset.src = imageUrl;
-      this._nodes.img.src = imageUrl;
+    this._ensureRvTopSvg();
+    if (this._config.display.show_compass_ring) {
+      this._ensureMiniRingSvg();
     }
-    this._nodes.img.alt = this._t("image_alt");
+
+    const width = this._nodes.wrapper?.clientWidth || this._nodes.wrapper?.offsetWidth || 440;
+    const autoScale = clampNumber(width / 440, 0.62, 1.12, 1);
+    const modeScale = this._textModeFactor();
+    const scale = clampNumber(autoScale * modeScale, 0.62, 1.32, 1);
+
+    const titlePx = clampInt(18 * scale, 12, 28);
+    const infoPx = clampInt(14 * scale, 10, 20);
+    const anglePx = clampInt(18 * scale, 12, 28);
+    const angleLabelPx = clampInt(11 * scale, 9, 15);
+    const wheelValuePx = clampInt(12 * scale, 9, 16);
+
     this._nodes.wrapper.style.background = this._config.display.background_color;
 
     this._nodes.title.textContent = title;
     this._nodes.title.hidden = !title;
     this._nodes.title.style.fontSize = `${titlePx}px`;
-    this._nodes.title.style.maxWidth = `${titleMaxWidthPx}px`;
     this._nodes.title.style.color = this._config.display.text_color;
 
     this._nodes.temp.hidden = !this._config.display.show_temperature;
     this._nodes.batt.hidden = !this._config.display.show_battery;
-    this._nodes.temp.textContent = model.tempText;
-    this._nodes.batt.textContent = model.battText;
+    this._nodes.tempText.textContent = model.tempText;
+    this._nodes.battText.textContent = model.battText;
     this._nodes.temp.style.fontSize = `${infoPx}px`;
     this._nodes.batt.style.fontSize = `${infoPx}px`;
-    this._nodes.temp.style.maxWidth = `${topMaxWidthPx}px`;
-    this._nodes.batt.style.maxWidth = `${topMaxWidthPx}px`;
     this._nodes.temp.style.color = this._config.display.text_color;
     this._nodes.batt.style.color = this._config.display.text_color;
 
-    const pitchText = model.valid ? `${fmtOne(model.pitch)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
-    const rollText = model.valid ? `${fmtOne(model.roll)} ${this._t("unit_deg")}` : `${this._t("not_available")} ${this._t("unit_deg")}`;
-    this._nodes.pitch.textContent = pitchText;
-    this._nodes.roll.textContent = rollText;
-    this._nodes.pitch.style.fontSize = `${anglePx}px`;
-    this._nodes.roll.style.fontSize = `${anglePx}px`;
-    this._nodes.pitch.style.maxWidth = `${pitchMaxWidthPx}px`;
-    this._nodes.roll.style.maxWidth = `${rollMaxWidthPx}px`;
-    this._nodes.pitch.style.color = this._config.display.text_color;
-    this._nodes.roll.style.color = this._config.display.text_color;
-
-    const dotGeometry = computeDotGeometry(width, this._config.display);
-    const dotSizePx = dotGeometry.dotSizePx;
-    const bubbleZoneSizePx = dotGeometry.bubbleZoneSizePx;
-    const dotTrackRadiusPx = dotGeometry.dotTrackRadiusPx;
-    const bubbleLeftPx = width * DOT_CENTER_X_RATIO - bubbleZoneSizePx / 2;
-    const bubbleTopPx = height * DOT_CENTER_Y_RATIO - bubbleZoneSizePx / 2;
-    const dotCenterX = bubbleZoneSizePx / 2 + model.dotNx * dotTrackRadiusPx;
-    const dotCenterY = bubbleZoneSizePx / 2 + model.dotNy * dotTrackRadiusPx;
-    this._nodes.bubbleZone.style.left = `${bubbleLeftPx}px`;
-    this._nodes.bubbleZone.style.top = `${bubbleTopPx}px`;
-    this._nodes.bubbleZone.style.width = `${bubbleZoneSizePx}px`;
-    this._nodes.bubbleZone.style.height = `${bubbleZoneSizePx}px`;
-    this._nodes.bubbleZone.style.transform = "none";
-    this._nodes.dot.style.width = `${dotSizePx}px`;
-    this._nodes.dot.style.height = `${dotSizePx}px`;
-    this._nodes.dot.style.left = `${dotCenterX}px`;
-    this._nodes.dot.style.top = `${dotCenterY}px`;
-    this._nodes.dot.style.background = this._config.display.dot_color;
-    this._nodes.dot.style.borderColor = this._config.display.dot_border_color;
-
-    const updateCorner = (markerNode, valueNode, corner) => {
-      const showCornerBlock = this._config.display.show_corner_values;
-      if (markerNode?.parentElement) {
-        markerNode.parentElement.hidden = !showCornerBlock;
-        markerNode.parentElement.style.display = showCornerBlock ? "" : "none";
-      }
-      valueNode.hidden = !showCornerBlock;
-      valueNode.style.display = showCornerBlock ? "" : "none";
-      if (!showCornerBlock) return;
-
-      markerNode.className = "marker";
-      markerNode.classList.add(corner.levelOk ? "level" : "raise");
-      if (corner.levelOk) {
-        markerNode.style.width = `${levelMarkerPx}px`;
-        markerNode.style.height = `${levelMarkerPx}px`;
-        markerNode.style.aspectRatio = "1 / 1";
-        markerNode.style.borderRadius = "50%";
-        markerNode.style.background = this._config.display.level_ok_color;
-        markerNode.style.boxShadow = "0 0 8px rgba(0,0,0,0.45)";
-        markerNode.style.borderLeft = "0";
-        markerNode.style.borderRight = "0";
-        markerNode.style.borderBottom = "0";
-      } else {
-        markerNode.style.width = "0";
-        markerNode.style.height = "0";
-        markerNode.style.aspectRatio = "auto";
-        markerNode.style.borderRadius = "0";
-        markerNode.style.background = "transparent";
-        markerNode.style.boxShadow = "none";
-        markerNode.style.borderLeft = `${raiseHalfPx}px solid transparent`;
-        markerNode.style.borderRight = `${raiseHalfPx}px solid transparent`;
-        markerNode.style.borderBottom = `${raiseHeightPx}px solid ${this._config.display.raise_color}`;
-      }
+    const showCorners = this._config.display.show_corner_values;
+    const applyWheel = (dotNode, valNode, corner) => {
+      dotNode.parentElement.hidden = !showCorners;
+      if (!showCorners) return;
+      dotNode.style.background = corner.levelOk
+        ? this._config.display.level_ok_color
+        : this._config.display.raise_color;
       const value = corner.raise === null ? 0 : corner.raise;
-      valueNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
-      valueNode.style.fontSize = `${cornerPx}px`;
-      valueNode.style.maxWidth = `${cornerMaxWidthPx}px`;
-      valueNode.style.color = this._config.display.text_color;
+      valNode.textContent = `${fmtOne(value)} ${this._t("unit_cm")}`;
+      valNode.style.fontSize = `${wheelValuePx}px`;
+      valNode.style.color = this._config.display.text_color;
     };
+    applyWheel(this._nodes.wheelDotFL, this._nodes.wheelValFL, model.corners.fl);
+    applyWheel(this._nodes.wheelDotFR, this._nodes.wheelValFR, model.corners.fr);
+    applyWheel(this._nodes.wheelDotRL, this._nodes.wheelValRL, model.corners.rl);
+    applyWheel(this._nodes.wheelDotRR, this._nodes.wheelValRR, model.corners.rr);
 
-    updateCorner(this._nodes.flm, this._nodes.flv, model.corners.fl);
-    updateCorner(this._nodes.frm, this._nodes.frv, model.corners.fr);
-    updateCorner(this._nodes.rlm, this._nodes.rlv, model.corners.rl);
-    updateCorner(this._nodes.rrm, this._nodes.rrv, model.corners.rr);
+    this._nodes.miniRingRotor.hidden = !this._config.display.show_compass_ring;
+    this._nodes.miniCompassIndex.hidden = !this._config.display.show_compass_ring;
+    this._nodes.miniLevelCircle.style.background = `
+      radial-gradient(circle at 50% 36%, ${this._config.display.level_highlight_color}, rgba(255,255,255,0) 35%),
+      radial-gradient(circle at 50% 50%, ${this._config.display.level_gradient_start} 0%, ${this._config.display.level_gradient_mid} 46%, ${this._config.display.level_gradient_end} 100%)
+    `;
+    this._nodes.miniDot.style.background = this._config.display.dot_color;
+    this._nodes.miniDot.style.borderColor = this._config.display.dot_border_color;
+    const miniCrossNodes = this.shadowRoot.querySelectorAll(".mini-cross");
+    for (const node of miniCrossNodes) node.style.background = this._config.display.crosshair_color;
+
+    const showAngles = this._config.display.show_angle_panel;
+    this._nodes.angleXLabel.parentElement.hidden = !showAngles;
+    this._nodes.angleYLabel.parentElement.hidden = !showAngles;
+    if (showAngles) {
+      this._nodes.angleXLabel.textContent = this._t("angle_x");
+      this._nodes.angleYLabel.textContent = this._t("angle_y");
+      this._nodes.angleXLabel.style.fontSize = `${angleLabelPx}px`;
+      this._nodes.angleYLabel.style.fontSize = `${angleLabelPx}px`;
+      this._nodes.angleXValue.style.fontSize = `${anglePx}px`;
+      this._nodes.angleYValue.style.fontSize = `${anglePx}px`;
+      this._nodes.angleXLabel.style.color = this._config.display.text_color;
+      this._nodes.angleYLabel.style.color = this._config.display.text_color;
+      this._nodes.angleXValue.style.color = this._config.display.text_color;
+      this._nodes.angleYValue.style.color = this._config.display.text_color;
+    }
+
+    if (this._config.display.show_compass_status && model.yawAvailable && !model.compassReliable) {
+      this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
+      this._nodes.compassStatus.hidden = false;
+    } else {
+      this._nodes.compassStatus.textContent = "";
+      this._nodes.compassStatus.hidden = true;
+    }
+    this._nodes.compassStatus.style.color = this._config.display.text_color;
+
+    this._renderRvTopDynamic();
+    this._startAnimationLoop();
+  }
+
+  _renderRvTopDynamic() {
+    const model = this._roundModel;
+    if (!model || this._config.display.mode !== "rv_top") return;
+    const render = this._roundRenderValues();
+    if (!render) return;
+
+    this._nodes.angleXValue.textContent = render.pitch !== null
+      ? `${fmtTwo(render.pitch)} ${this._t("unit_deg")}`
+      : `${this._t("not_available")} ${this._t("unit_deg")}`;
+    this._nodes.angleYValue.textContent = render.roll !== null
+      ? `${fmtTwo(render.roll)} ${this._t("unit_deg")}`
+      : `${this._t("not_available")} ${this._t("unit_deg")}`;
+
+    this._nodes.miniRingRotor.style.transform = `rotate(${render.ringRotationDeg}deg)`;
+    this._nodes.miniRingRotor.style.transition = "none";
+
+    const miniSize = this._nodes.miniLevelCircle?.clientWidth || 80;
+    const dotGeometry = computeRoundDotGeometry(miniSize, this._config.display);
+    const centerX = miniSize * ROUND_CENTER_X_RATIO;
+    const centerY = miniSize * ROUND_CENTER_Y_RATIO;
+    const dotCenterX = centerX + render.dotNx * dotGeometry.dotTrackRadiusPx;
+    const dotCenterY = centerY + render.dotNy * dotGeometry.dotTrackRadiusPx;
+    this._nodes.miniDot.style.width = `${dotGeometry.dotSizePx}px`;
+    this._nodes.miniDot.style.height = `${dotGeometry.dotSizePx}px`;
+    this._nodes.miniDot.style.left = `${dotCenterX}px`;
+    this._nodes.miniDot.style.top = `${dotCenterY}px`;
   }
 
   _updateRoundCompass() {
@@ -1777,6 +1901,10 @@ class WitHaLovelaceCard extends HTMLElement {
       if (this._nodes.roundBg.dataset.src !== roundBgUrl) {
         this._nodes.roundBg.dataset.src = roundBgUrl;
         this._nodes.roundBg.src = roundBgUrl;
+        this._nodes.roundBg.onerror = () => {
+          this._nodes.roundBg.hidden = true;
+          this._nodes.wrapper.style.background = this._config.display.background_color;
+        };
       }
       this._nodes.roundBg.alt = this._t("image_alt");
     }
@@ -1865,7 +1993,7 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.compassStatus.style.color = this._config.display.text_color;
 
     this._renderRoundDynamic();
-    this._startRoundAnimationLoop();
+    this._startAnimationLoop();
   }
 
   _renderRoundDynamic() {

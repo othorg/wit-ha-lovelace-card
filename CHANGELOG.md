@@ -9,6 +9,16 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.8] - 2026-03-12
+
+### Changed
+- Thermometer icon alignment refined so it appears upright in both display modes (`rv_top`, `round_compass`).
+- `rv_top` leveling indicators moved closer to the vehicle center:
+  - front/rear rows shifted ~10% toward center vertically
+  - left/right columns shifted ~15% toward center horizontally
+  - applies to symbol + value block.
+- Added a compact sensor orientation badge (X/Y/Z axes) to both views for installation guidance.
+
 ## [0.3.7] - 2026-03-11
 
 ### Changed

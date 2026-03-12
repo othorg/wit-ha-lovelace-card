@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.7";
+const CARD_VERSION = "0.3.8";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -1031,8 +1031,10 @@ class WitHaLovelaceCard extends HTMLElement {
           flex-direction: column;
           background: #9bc4d6;
           border-radius: 16px;
-          padding: 14px 12px;
+          padding: 12px 10px 10px;
           box-sizing: border-box;
+          overflow: hidden;
+          aspect-ratio: 5 / 6;
         }
         .rv-top-head {
           position: relative;
@@ -1057,6 +1059,11 @@ class WitHaLovelaceCard extends HTMLElement {
         .head-value.right { grid-column: 2; text-align: right; justify-self: end; }
         .head-value.left { grid-column: 1; text-align: left; justify-self: start; }
         .head-icon { margin-right: 3px; }
+        .temp .head-icon {
+          display: inline-block;
+          transform: rotate(18deg);
+          transform-origin: 50% 55%;
+        }
         .rv-title {
           position: absolute;
           left: 50%; top: 50%;
@@ -1078,7 +1085,8 @@ class WitHaLovelaceCard extends HTMLElement {
         .rv-top-body {
           position: relative;
           width: 100%;
-          aspect-ratio: 5 / 6;
+          flex: 1;
+          min-height: 0;
         }
         .rv-svg-container {
           position: absolute;
@@ -1093,10 +1101,10 @@ class WitHaLovelaceCard extends HTMLElement {
           gap: 3px;
           z-index: 3;
         }
-        .wheel-indicator.fl { top: 13%; left: 3%; }
-        .wheel-indicator.fr { top: 13%; right: 3%; }
-        .wheel-indicator.rl { bottom: 14%; left: 3%; }
-        .wheel-indicator.rr { bottom: 14%; right: 3%; }
+        .wheel-indicator.fl { top: 23%; left: 18%; }
+        .wheel-indicator.fr { top: 23%; right: 18%; }
+        .wheel-indicator.rl { bottom: 24%; left: 18%; }
+        .wheel-indicator.rr { bottom: 24%; right: 18%; }
         .wheel-dot {
           width: 16px; height: 16px;
           box-shadow: 0 0 6px rgba(0,0,0,0.3);
@@ -1222,6 +1230,17 @@ class WitHaLovelaceCard extends HTMLElement {
           min-height: 18px;
           line-height: 1.2;
         }
+        .sensor-axes-badge {
+          margin: 4px auto 0;
+          width: 64px;
+          height: 64px;
+          opacity: 0.92;
+        }
+        .sensor-axes-badge svg {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
       </style>
       <ha-card>
         <div class="wrapper rv-top">
@@ -1277,6 +1296,7 @@ class WitHaLovelaceCard extends HTMLElement {
             </div>
           </div>
           <div class="rv-top-status"></div>
+          <div class="sensor-axes-badge">${this._buildSensorAxesSvg()}</div>
         </div>
       </ha-card>
     `;
@@ -1355,6 +1375,28 @@ class WitHaLovelaceCard extends HTMLElement {
         <circle cx="50" cy="50" r="49.5" fill="${ringBg}" stroke="#222938" stroke-width="0.9" />
         ${ticks.join("")}
         ${labels.join("")}
+      </svg>
+    `;
+  }
+
+  _buildSensorAxesSvg() {
+    const labelColor = escapeHtml(this._displayColor("text_color"));
+    return `
+      <svg viewBox="0 0 64 64" role="img" aria-label="Sensor orientation axes" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="32" r="30" fill="rgba(255,255,255,0.22)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
+        <circle cx="32" cy="32" r="3.2" fill="rgba(25,25,25,0.72)"/>
+
+        <line x1="32" y1="32" x2="52" y2="32" stroke="#e53935" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="56,32 50,28.5 50,35.5" fill="#e53935"/>
+        <text x="57.5" y="29.2" font-size="8.5" font-family="Arial, sans-serif" fill="${labelColor}">X</text>
+
+        <line x1="32" y1="32" x2="32" y2="12" stroke="#1fbf4c" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="32,8 28.5,14 35.5,14" fill="#1fbf4c"/>
+        <text x="35.3" y="11" font-size="8.5" font-family="Arial, sans-serif" fill="${labelColor}">Y</text>
+
+        <line x1="32" y1="32" x2="17.5" y2="46.5" stroke="#1e88e5" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="14.2,49.8 16.2,43.2 20.8,47.8" fill="#1e88e5"/>
+        <text x="10.6" y="53.6" font-size="8.5" font-family="Arial, sans-serif" fill="${labelColor}">Z</text>
       </svg>
     `;
   }
@@ -1529,6 +1571,11 @@ class WitHaLovelaceCard extends HTMLElement {
           justify-self: start;
         }
         .head-icon { margin-right: 3px; }
+        .temp .head-icon {
+          display: inline-block;
+          transform: rotate(18deg);
+          transform-origin: 50% 55%;
+        }
         .title {
           position: absolute;
           left: 50%;
@@ -1664,6 +1711,17 @@ class WitHaLovelaceCard extends HTMLElement {
           min-height: 14px;
           line-height: 1.2;
         }
+        .sensor-axes-badge {
+          margin: 6px auto 0;
+          width: 58px;
+          height: 58px;
+          opacity: 0.9;
+        }
+        .sensor-axes-badge svg {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
         .corner-grid {
           margin-top: 6px;
           display: grid;
@@ -1764,6 +1822,7 @@ class WitHaLovelaceCard extends HTMLElement {
             </div>
           </div>
           <div class="status-row compass-status"></div>
+          <div class="sensor-axes-badge">${this._buildSensorAxesSvg()}</div>
           </div>
         </div>
       </ha-card>

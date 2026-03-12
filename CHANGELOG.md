@@ -9,6 +9,11 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.4.4] - 2026-03-12
+
+### Changed
+- Renamed orientation option label to `Roll-Invertierung` (without "deaktivieren").
+
 ## [0.4.3] - 2026-03-12
 
 ### Fixed

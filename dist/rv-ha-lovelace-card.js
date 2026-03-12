@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.4.3";
+const CARD_VERSION = "0.4.4";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -130,7 +130,7 @@ const I18N = {
     orientation: "Sensorausrichtung",
     swap_axes: "X/Y tauschen",
     invert_pitch: "Pitch invertieren",
-    invert_roll: "Roll-Invertierung deaktivieren",
+    invert_roll: "Roll-Invertierung",
     invert_yaw: "Yaw invertieren",
     sensor_forward_axis: "Sensor-Vorwaertsachse",
     forward_axis_x: "X nach vorne",
@@ -210,7 +210,7 @@ const I18N = {
     orientation: "Sensor orientation",
     swap_axes: "Swap X/Y",
     invert_pitch: "Invert pitch",
-    invert_roll: "Disable roll inversion",
+    invert_roll: "Roll inversion",
     invert_yaw: "Invert yaw",
     sensor_forward_axis: "Sensor forward axis",
     forward_axis_x: "X forward",

@@ -650,3 +650,144 @@ test("rv_top mode smoothing system is not blocked by mode guard", () => {
   assert.ok(card._roundModel, "smoothing model should be set for rv_top");
   assert.equal(card._roundModel.valid, true);
 });
+
+// ── computeMagHeading tests ──
+
+test("computeMagHeading returns null for invalid inputs", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  assert.equal(computeMagHeading(null, 1, 1, 0, 0), null);
+  assert.equal(computeMagHeading(1, undefined, 1, 0, 0), null);
+  assert.equal(computeMagHeading(1, 1, NaN, 0, 0), null);
+  assert.equal(computeMagHeading(1, 1, 1, null, 0), null);
+  assert.equal(computeMagHeading(1, 1, 1, 0, Infinity), null);
+});
+
+test("computeMagHeading returns null for near-zero mag vector (uncalibrated)", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  assert.equal(computeMagHeading(0.1, 0.1, 0.1, 0, 0), null);
+  assert.equal(computeMagHeading(0, 0, 0, 0, 0), null);
+});
+
+test("computeMagHeading flat sensor magX dominant → heading ≈ 0° (North)", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  // Flat sensor (pitch=0, roll=0), magnetic field pointing along X (forward) → North
+  const heading = computeMagHeading(50, 0, -40, 0, 0);
+  assert.ok(heading !== null);
+  assert.ok(Math.abs(heading) < 5 || Math.abs(heading - 360) < 5, `heading=${heading}, expected ≈ 0°`);
+});
+
+test("computeMagHeading flat sensor magY dominant → heading ≈ 270° (West)", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  // Flat sensor, mag field pointing along +Y (left) → West (270°)
+  // atan2(-my_h, mx_h) = atan2(-Y, 0) with Y positive → atan2(negative, 0) = -90° → 270°
+  const heading = computeMagHeading(0, 50, -40, 0, 0);
+  assert.ok(heading !== null);
+  assert.ok(Math.abs(heading - 270) < 5, `heading=${heading}, expected ≈ 270°`);
+});
+
+test("computeMagHeading heading increases when rotating East (0→90°)", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  // Flat sensor, field at 45° between X and -Y → should be ~45° East
+  // East = -Y direction, so mag_y negative means East component
+  const heading = computeMagHeading(50, -50, -40, 0, 0);
+  assert.ok(heading !== null);
+  assert.ok(heading > 30 && heading < 60, `heading=${heading}, expected ≈ 45°`);
+});
+
+test("computeMagHeading with real sensor data (mag_x=0.879, mag_y=102.148, mag_z=-119.238)", () => {
+  const { computeMagHeading } = loadRuntime().api;
+  const heading = computeMagHeading(0.879, 102.148, -119.238, 0, 0);
+  assert.ok(heading !== null);
+  // With Y strongly positive (left) and X near zero → heading should be near 270° (West)
+  assert.ok(heading > 250 && heading < 290, `heading=${heading}, expected ≈ 270°`);
+});
+
+test("normalizeConfig defaults mag_x/y/z to empty string", () => {
+  const { normalizeConfig } = loadRuntime().api;
+  const config = normalizeConfig({ type: "custom:rv-ha-lovelace-card" });
+  assert.equal(config.entities.mag_x, "");
+  assert.equal(config.entities.mag_y, "");
+  assert.equal(config.entities.mag_z, "");
+});
+
+test("resolvePitchRoll returns rawPitch and rawRoll", () => {
+  const { resolvePitchRoll, readNumericState } = loadRuntime().api;
+  const hass = {
+    states: {
+      "sensor.pitch": { state: "2.5" },
+      "sensor.roll": { state: "-1.3" },
+    },
+  };
+  const config = {
+    entities: { pitch: "sensor.pitch", roll: "sensor.roll" },
+    orientation: { invert_pitch: true, swap_axes: false },
+  };
+  const pr = resolvePitchRoll(hass, config, false);
+  assert.equal(pr.rawPitch, 2.5, "rawPitch should be original sensor value");
+  assert.equal(pr.rawRoll, -1.3, "rawRoll should be original sensor value");
+  assert.equal(pr.pitch, -2.5, "pitch should be inverted");
+  assert.equal(pr.roll, -1.3, "roll should not be inverted");
+});
+
+test("_buildModel uses mag heading when mag entities configured", () => {
+  const runtime = loadRuntime();
+  const CardClass = runtime.registry.get("rv-ha-lovelace-card");
+  const card = new CardClass();
+  card._render = () => {};
+  card.setConfig({ type: "custom:rv-ha-lovelace-card" });
+  card._config = runtime.api.normalizeConfig({
+    type: "custom:rv-ha-lovelace-card",
+    entities: {
+      pitch: "sensor.pitch",
+      roll: "sensor.roll",
+      yaw: "sensor.yaw",
+      mag_x: "sensor.mag_x",
+      mag_y: "sensor.mag_y",
+      mag_z: "sensor.mag_z",
+    },
+  });
+  card._hass = {
+    states: {
+      "sensor.pitch": { state: "0" },
+      "sensor.roll": { state: "0" },
+      "sensor.yaw": { state: "90" },
+      "sensor.mag_x": { state: "50" },
+      "sensor.mag_y": { state: "0" },
+      "sensor.mag_z": { state: "-40" },
+    },
+  };
+  const model = card._buildModel();
+  assert.equal(model.headingFromMag, true, "heading should come from magnetometer");
+  assert.ok(model.yawAvailable, "yaw should be available");
+  // mag heading: X dominant, flat → ≈ 0°/360°
+  assert.ok(model.heading < 5 || model.heading > 355, `heading=${model.heading}, expected ≈ 0°`);
+  // yaw should equal heading when from mag
+  assert.equal(model.yaw, model.heading, "yaw should equal heading when from mag");
+});
+
+test("_buildModel falls back to yaw when mag entities not configured", () => {
+  const runtime = loadRuntime();
+  const CardClass = runtime.registry.get("rv-ha-lovelace-card");
+  const card = new CardClass();
+  card._render = () => {};
+  card.setConfig({ type: "custom:rv-ha-lovelace-card" });
+  card._config = runtime.api.normalizeConfig({
+    type: "custom:rv-ha-lovelace-card",
+    entities: {
+      pitch: "sensor.pitch",
+      roll: "sensor.roll",
+      yaw: "sensor.yaw",
+    },
+  });
+  card._hass = {
+    states: {
+      "sensor.pitch": { state: "0" },
+      "sensor.roll": { state: "0" },
+      "sensor.yaw": { state: "90" },
+    },
+  };
+  const model = card._buildModel();
+  assert.equal(model.headingFromMag, false, "heading should NOT come from magnetometer");
+  assert.ok(model.yawAvailable, "yaw should be available from gyro");
+  assert.ok(Math.abs(model.heading - 90) < 0.01, `heading=${model.heading}, expected 90°`);
+});

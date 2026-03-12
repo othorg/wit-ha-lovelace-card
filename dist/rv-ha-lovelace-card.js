@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.12";
+const CARD_VERSION = "0.4.0";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -60,6 +60,9 @@ const DEFAULT_ENTITIES = {
   yaw: "sensor.wit_wt5500008241_gier",
   temperature: "sensor.wit_wt5500008241_temperatur",
   battery_soc: "sensor.wit_wt5500008241_batterie",
+  mag_x: "",
+  mag_y: "",
+  mag_z: "",
 };
 
 const I18N = {
@@ -74,6 +77,9 @@ const I18N = {
     yaw_entity: "Gier (Yaw)",
     temp_entity: "Temperatur",
     batt_entity: "Batterie",
+    mag_x_entity: "Magnetometer X",
+    mag_y_entity: "Magnetometer Y",
+    mag_z_entity: "Magnetometer Z",
     geometry: "Geometrie",
     wheelbase_mm: "Achsabstand (mm)",
     track_front_mm: "Spur vorne (mm)",
@@ -128,6 +134,8 @@ const I18N = {
     yaw_offset_deg: "Yaw-Offset (Grad)",
     auto_screen_mapping: "Achsen automatisch an Bildschirm drehen",
     compass_reliability_hint: "Kompass evtl. unzuverlaessig (starke Neigung)",
+    heading_source_mag: "MAG",
+    heading_source_gyro: "GYRO",
     angle_x: "AngleX (Seitenneigung)",
     angle_y: "AngleY (Laengsneigung)",
     angle_z: "AngleZ",
@@ -146,6 +154,9 @@ const I18N = {
     yaw_entity: "Yaw (Gier)",
     temp_entity: "Temperature",
     batt_entity: "Battery",
+    mag_x_entity: "Magnetometer X",
+    mag_y_entity: "Magnetometer Y",
+    mag_z_entity: "Magnetometer Z",
     geometry: "Geometry",
     wheelbase_mm: "Wheelbase (mm)",
     track_front_mm: "Front track (mm)",
@@ -200,6 +211,8 @@ const I18N = {
     yaw_offset_deg: "Yaw offset (deg)",
     auto_screen_mapping: "Auto-map axes to screen orientation",
     compass_reliability_hint: "Compass may be unreliable at high tilt",
+    heading_source_mag: "MAG",
+    heading_source_gyro: "GYRO",
     angle_x: "AngleX (roll)",
     angle_y: "AngleY (pitch)",
     angle_z: "AngleZ",
@@ -466,6 +479,10 @@ function resolvePitchRoll(hass, config, isLandscape = isLandscapeOrientation()) 
   let pitch = readNumericState(hass, pitchEntity);
   let roll = readNumericState(hass, rollEntity);
 
+  // Preserve raw sensor-frame values before orientation transforms (needed for mag heading)
+  const rawPitch = pitch;
+  const rawRoll = roll;
+
   if (pitch !== null && roll !== null && config?.orientation?.auto_screen_mapping && isLandscape) {
     const p = pitch;
     // 90-degree remap for common landscape usage in dashboards.
@@ -481,7 +498,7 @@ function resolvePitchRoll(hass, config, isLandscape = isLandscapeOrientation()) 
   if (pitch !== null && config?.orientation?.invert_pitch) pitch = -pitch;
   if (roll !== null && config?.orientation?.invert_roll) roll = -roll;
 
-  return { pitch, roll, valid: pitch !== null && roll !== null };
+  return { pitch, roll, rawPitch, rawRoll, valid: pitch !== null && roll !== null };
 }
 
 function computeLeveling(pitchDeg, rollDeg, geometry) {
@@ -516,6 +533,30 @@ function computeLeveling(pitchDeg, rollDeg, geometry) {
     raise_rl: Math.max(0, z_rl - minZ),
     raise_rr: Math.max(0, z_rr - minZ),
   };
+}
+
+function computeMagHeading(magX, magY, magZ, rawPitchDeg, rawRollDeg) {
+  if (!Number.isFinite(magX) || !Number.isFinite(magY) || !Number.isFinite(magZ)
+      || !Number.isFinite(rawPitchDeg) || !Number.isFinite(rawRollDeg)) return null;
+
+  // Reject near-zero magnetometer vector (uncalibrated / shielded)
+  const magNorm = Math.hypot(magX, magY, magZ);
+  if (magNorm < 1) return null;
+
+  const toRad = (d) => d * Math.PI / 180;
+  const cos_p = Math.cos(toRad(rawPitchDeg)), sin_p = Math.sin(toRad(rawPitchDeg));
+  const cos_r = Math.cos(toRad(rawRollDeg)),  sin_r = Math.sin(toRad(rawRollDeg));
+
+  // Tilt compensation: rotate magnetometer to horizontal plane
+  // Sensor frame: X=forward, Y=left, Z=up (WIT-901 default mounting)
+  // Roll = rotation around X (forward), Pitch = rotation around Y (left)
+  const mx_h = magX * cos_p + magY * sin_r * sin_p - magZ * cos_r * sin_p;
+  const my_h = magY * cos_r + magZ * sin_r;
+
+  // heading = atan2(East, North) for CW-from-North convention
+  // X=forward=North-component, -Y=right=East-component (Y=left → East = -Y)
+  const heading_rad = Math.atan2(-my_h, mx_h);
+  return ((heading_rad * 180 / Math.PI) % 360 + 360) % 360;
 }
 
 function clampTiltForLeveling(value) {
@@ -772,6 +813,9 @@ class WitHaLovelaceCard extends HTMLElement {
       this._config.entities?.yaw,
       this._config.entities?.temperature,
       this._config.entities?.battery_soc,
+      this._config.entities?.mag_x,
+      this._config.entities?.mag_y,
+      this._config.entities?.mag_z,
     ].filter(Boolean);
     this._cachedTrackedEntityIds = [...new Set(ids)];
     return this._cachedTrackedEntityIds;
@@ -809,13 +853,36 @@ class WitHaLovelaceCard extends HTMLElement {
     const dot = projectToUnitCircle(rawDotNx, rawDotNy);
 
     const tolCm = this._config.display.level_tolerance_cm;
-    const rawYaw = readNumericState(this._hass, this._config.entities.yaw);
     let heading = 0;
     let yaw = null;
-    if (rawYaw !== null) {
-      const mappedYaw = this._config.orientation.invert_yaw ? -rawYaw : rawYaw;
-      yaw = normalize360(mappedYaw + this._config.orientation.yaw_offset_deg);
-      heading = yaw;
+    let headingFromMag = false;
+
+    // Magnetometer-first heading: compute tilt-compensated magnetic heading.
+    // Uses rawPitch/rawRoll (sensor frame, before swap/invert) because the
+    // magnetometer values are also in sensor frame. swap_axes/invert_pitch/
+    // invert_roll only affect the leveling display — the heading formula
+    // requires the physical sensor orientation. Use invert_yaw and
+    // yaw_offset_deg to correct the final heading output.
+    const mx = readNumericState(this._hass, this._config.entities.mag_x);
+    const my = readNumericState(this._hass, this._config.entities.mag_y);
+    const mz = readNumericState(this._hass, this._config.entities.mag_z);
+    const magHeading = (mx !== null && my !== null && mz !== null && pr.rawPitch !== null && pr.rawRoll !== null)
+      ? computeMagHeading(mx, my, mz, pr.rawPitch, pr.rawRoll)
+      : null;
+
+    if (magHeading !== null) {
+      const mapped = this._config.orientation.invert_yaw ? -magHeading : magHeading;
+      heading = normalize360(mapped + this._config.orientation.yaw_offset_deg);
+      yaw = heading;
+      headingFromMag = true;
+    } else {
+      // Fallback: Gyro-Yaw
+      const rawYaw = readNumericState(this._hass, this._config.entities.yaw);
+      if (rawYaw !== null) {
+        const mappedYaw = this._config.orientation.invert_yaw ? -rawYaw : rawYaw;
+        yaw = normalize360(mappedYaw + this._config.orientation.yaw_offset_deg);
+        heading = yaw;
+      }
     }
     const tiltMagnitude = pr.valid ? Math.max(Math.abs(pr.pitch), Math.abs(pr.roll)) : null;
     const compassReliable = Boolean(
@@ -850,6 +917,7 @@ class WitHaLovelaceCard extends HTMLElement {
       yaw,
       yawAvailable: yaw !== null,
       heading,
+      headingFromMag,
       ringRotationDeg: -heading,
       tiltMagnitude,
       compassReliable,
@@ -995,8 +1063,9 @@ class WitHaLovelaceCard extends HTMLElement {
 
     const maxTilt = this._config.display.max_tilt_deg || DEFAULT_DISPLAY.max_tilt_deg;
     const clamp = (v) => Math.max(-1, Math.min(1, v));
-    const rawNx = model.valid ? clamp((-roll) / maxTilt) : 0;
-    const rawNy = model.valid ? clamp((-pitch) / maxTilt) : 0;
+    // Ball behavior: dot moves toward the low side (matching EasyLevel reference).
+    const rawNx = model.valid ? clamp(roll / maxTilt) : 0;
+    const rawNy = model.valid ? clamp(pitch / maxTilt) : 0;
     const dot = projectToUnitCircle(rawNx, rawNy);
     const normalizedHeading = heading === null || heading === undefined ? 0 : normalize360(heading);
 
@@ -1412,23 +1481,27 @@ class WitHaLovelaceCard extends HTMLElement {
 
   _buildSensorAxesSvg() {
     const labelColor = escapeHtml(this._displayColor("text_color"));
+    const dimColor = "rgba(0,0,0,0.38)";
     return `
-      <svg viewBox="0 0 64 64" role="img" aria-label="Sensor orientation: Y to front, X to right, Z up" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 64 68" role="img" aria-label="Sensor orientation: X=Pitch (forward), Y=Roll (left), Z=Yaw (up)" xmlns="http://www.w3.org/2000/svg">
         <circle cx="32" cy="32" r="30" fill="rgba(255,255,255,0.22)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
         <circle cx="32" cy="32" r="3.2" fill="rgba(25,25,25,0.72)"/>
         <text x="32" y="7.6" text-anchor="middle" font-size="6.6" font-family="Arial, sans-serif" fill="${labelColor}">FRONT</text>
 
-        <line x1="32" y1="32" x2="52" y2="32" stroke="#e53935" stroke-width="2.2" stroke-linecap="round"/>
-        <polygon points="56,32 50,28.5 50,35.5" fill="#e53935"/>
-        <text x="56.8" y="28.8" font-size="7.8" font-family="Arial, sans-serif" fill="${labelColor}">X</text>
+        <line x1="32" y1="32" x2="32" y2="12" stroke="#e53935" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="32,8 28.5,14 35.5,14" fill="#e53935"/>
+        <text x="35.2" y="10.8" font-size="7.8" font-family="Arial, sans-serif" fill="${labelColor}">X</text>
+        <text x="18.5" y="10.8" font-size="4.8" font-family="Arial, sans-serif" fill="${dimColor}">Pitch</text>
 
-        <line x1="32" y1="32" x2="32" y2="12" stroke="#1fbf4c" stroke-width="2.2" stroke-linecap="round"/>
-        <polygon points="32,8 28.5,14 35.5,14" fill="#1fbf4c"/>
-        <text x="35.2" y="10.8" font-size="7.8" font-family="Arial, sans-serif" fill="${labelColor}">Y</text>
+        <line x1="32" y1="32" x2="12" y2="32" stroke="#1fbf4c" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="8,32 14,28.5 14,35.5" fill="#1fbf4c"/>
+        <text x="1" y="28.2" font-size="7.8" font-family="Arial, sans-serif" fill="${labelColor}">Y</text>
+        <text x="1" y="36.8" font-size="4.8" font-family="Arial, sans-serif" fill="${dimColor}">Roll</text>
 
         <circle cx="23" cy="41.5" r="4.2" fill="none" stroke="#1e88e5" stroke-width="1.6"/>
         <circle cx="23" cy="41.5" r="1.6" fill="#1e88e5"/>
-        <text x="28.5" y="44.2" font-size="7.2" font-family="Arial, sans-serif" fill="${labelColor}">Z+</text>
+        <text x="28.5" y="44.2" font-size="7.2" font-family="Arial, sans-serif" fill="${labelColor}">Z</text>
+        <text x="15" y="50.5" font-size="4.8" font-family="Arial, sans-serif" fill="${dimColor}">Yaw</text>
       </svg>
     `;
   }
@@ -2040,8 +2113,14 @@ class WitHaLovelaceCard extends HTMLElement {
       this._nodes.angleYValue.style.color = textColor;
     }
 
-    if (this._config.display.show_compass_status && model.yawAvailable && !model.compassReliable) {
-      this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
+    if (this._config.display.show_compass_status && model.yawAvailable) {
+      if (!model.compassReliable) {
+        this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
+      } else {
+        this._nodes.compassStatus.textContent = model.headingFromMag
+          ? this._t("heading_source_mag")
+          : this._t("heading_source_gyro");
+      }
       this._nodes.compassStatus.hidden = false;
     } else {
       this._nodes.compassStatus.textContent = "";
@@ -2238,8 +2317,14 @@ class WitHaLovelaceCard extends HTMLElement {
       this._config.display.show_angle_panel && !this._config.display.show_corner_values,
     );
 
-    if (this._config.display.show_compass_status && model.yawAvailable && !model.compassReliable) {
-      this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
+    if (this._config.display.show_compass_status && model.yawAvailable) {
+      if (!model.compassReliable) {
+        this._nodes.compassStatus.textContent = this._t("compass_reliability_hint");
+      } else {
+        this._nodes.compassStatus.textContent = model.headingFromMag
+          ? this._t("heading_source_mag")
+          : this._t("heading_source_gyro");
+      }
       this._nodes.compassStatus.hidden = false;
     } else {
       this._nodes.compassStatus.textContent = "";
@@ -2521,6 +2606,9 @@ class WitHaLovelaceCardEditor extends HTMLElement {
           <div class="row"><label>${escapeHtml(this._t("pitch_entity"))}</label><input id="pitch" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.pitch)}" /></div>
           <div class="row"><label>${escapeHtml(this._t("roll_entity"))}</label><input id="roll" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.roll)}" /></div>
           <div class="row"><label>${escapeHtml(this._t("yaw_entity"))}</label><input id="yaw" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.yaw)}" /></div>
+          <div class="row"><label>${escapeHtml(this._t("mag_x_entity"))}</label><input id="mag_x" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.mag_x)}" /></div>
+          <div class="row"><label>${escapeHtml(this._t("mag_y_entity"))}</label><input id="mag_y" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.mag_y)}" /></div>
+          <div class="row"><label>${escapeHtml(this._t("mag_z_entity"))}</label><input id="mag_z" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.mag_z)}" /></div>
           <div class="row"><label>${escapeHtml(this._t("temp_entity"))}</label><input id="temperature" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.temperature)}" /></div>
           <div class="row"><label>${escapeHtml(this._t("batt_entity"))}</label><input id="battery_soc" data-group="entities" list="entity-options" type="text" value="${escapeHtml(c.entities.battery_soc)}" /></div>
         </div>
@@ -2691,6 +2779,7 @@ window.__WIT_CARD_TEST_API = {
   normalizeDisplayMode,
   normalize360,
   computeLeveling,
+  computeMagHeading,
   clampTiltForLeveling,
   projectToUnitCircle,
   computeDotGeometry,

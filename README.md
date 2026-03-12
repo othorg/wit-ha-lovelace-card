@@ -26,6 +26,7 @@ Current release line: `0.3.x` with dual visualization modes and full editor-base
   - pitch
   - roll
   - yaw
+  - magnetometer X/Y/Z (optional, for magnetic compass heading)
   - temperature
   - battery SoC
 - Configurable geometry:
@@ -102,6 +103,36 @@ For reliable leveling values, sensor placement matters more than card settings.
   - use `yaw_offset_deg` for heading alignment
   - enable `auto_screen_mapping` for portrait/landscape dashboards
 
+## Magnetic compass heading (magnetometer)
+
+The card supports computing a **tilt-compensated magnetic heading** from magnetometer data. This replaces the gyro-based yaw (which is only relative and drifts over time) with an absolute compass direction.
+
+### Setup
+
+1. **Enable magnetometer entities in Home Assistant.**
+   The WIT-901 WiFi integration provides `mag_x`, `mag_y`, `mag_z` entities, but they are **disabled by default**. You must manually enable them:
+   - Go to **Settings → Devices & Services → WIT-901 device → Entities**
+   - Find the three magnetometer entities (Magnetometer X/Y/Z) and enable each one
+   - Wait for HA to start reporting values
+2. **Configure in card editor.**
+   Enter the three magnetometer entity IDs in the card editor fields "Magnetometer X", "Magnetometer Y", "Magnetometer Z".
+3. **Verify heading.**
+   The compass ring should now show the correct magnetic heading. Use `yaw_offset_deg` for fine-tuning (e.g. local magnetic declination or mounting offset).
+
+### How it works
+
+- When all three magnetometer entities are configured and reporting valid values, the card computes a **tilt-compensated magnetic heading** using pitch/roll from the sensor frame (before any orientation transforms).
+- The heading formula assumes the **WIT-901 default mounting** with **X=forward, Y=left, Z=up**.
+- When the magnetic heading is active, `AngleZ` in the angle panel shows the same heading value (not the gyro yaw), so compass ring and AngleZ stay in sync.
+- If magnetometer entities are not configured or report invalid/unavailable values, the card **falls back to the gyro-based yaw entity** automatically.
+
+### Important notes
+
+- **Magnetic heading is affected by interference.** Strong magnetic fields from speakers, inverters, transformers, or high-current cables near the sensor will distort the heading. Keep distance from these sources (see "Sensor placement & orientation" above).
+- **Use `yaw_offset_deg` for fine correction.** This offset applies to both magnetometer and gyro heading sources.
+- **The magnetometer vector norm must be ≥ 1 µT.** If the sensor is shielded or uncalibrated (near-zero field), the card rejects the reading and falls back to gyro yaw.
+- **Orientation options `swap_axes`, `invert_pitch`, `invert_roll` do NOT affect the heading calculation.** These options only correct the leveling display. The heading formula uses raw sensor-frame pitch/roll because magnetometer data is also in sensor frame. To correct the heading output, use `invert_yaw` and `yaw_offset_deg`.
+
 ## Installation (HACS)
 
 1. Open `HACS`.
@@ -132,7 +163,10 @@ title: Flair 920 - Level
 entities:
   pitch: sensor.easylevelrv_neigung_x
   roll: sensor.easylevelrv_neigung_y
-  yaw: sensor.wit_901_wifi_00008241_yaw
+  yaw: sensor.wit_wt5500008241_gier
+  mag_x: sensor.wit_wt5500008241_magnetometer_x
+  mag_y: sensor.wit_wt5500008241_magnetometer_y
+  mag_z: sensor.wit_wt5500008241_magnetometer_z
   temperature: sensor.easylevelrv_temperatur
   battery_soc: sensor.easylevelrv_batterie
 geometry:

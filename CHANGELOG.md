@@ -9,6 +9,23 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.4.0] - 2026-03-12
+
+### Added
+- Optional magnetometer entity support for tilt-compensated heading:
+  - `entities.mag_x`
+  - `entities.mag_y`
+  - `entities.mag_z`
+- Editor fields and i18n labels for Magnetometer X/Y/Z.
+- `computeMagHeading()` exposed in test API and covered by dedicated heading/fallback tests.
+
+### Changed
+- Model heading flow is now magnetometer-first with automatic gyro-yaw fallback.
+- `AngleZ` remains consistent with the active heading source.
+- Compass source indicator now shows `MAG` vs `GYRO` when no tilt warning is active.
+- README expanded with setup and behavior notes for magnetic heading.
+- YAML example entity IDs aligned with current `sensor.wit_wt5500008241_*` naming.
+
 ## [0.3.12] - 2026-03-12
 
 ### Fixed

@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.8";
+const CARD_VERSION = "0.3.9";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -730,7 +730,7 @@ class WitHaLovelaceCard extends HTMLElement {
   getCardSize() {
     const width = this.offsetWidth || this.getBoundingClientRect().width || 0;
     if (!width) return 8;
-    const bodyHeight = (width * 6) / 5;
+    const bodyHeight = (width * 19) / 9;
     const headerHeight = 56;
     return Math.max(8, Math.ceil((bodyHeight + headerHeight) / 50));
   }
@@ -1027,6 +1027,7 @@ class WitHaLovelaceCard extends HTMLElement {
         :host { display: block; }
         ha-card { overflow: hidden; }
         .wrapper.rv-top {
+          position: relative;
           display: flex;
           flex-direction: column;
           background: #9bc4d6;
@@ -1034,7 +1035,7 @@ class WitHaLovelaceCard extends HTMLElement {
           padding: 12px 10px 10px;
           box-sizing: border-box;
           overflow: hidden;
-          aspect-ratio: 5 / 6;
+          aspect-ratio: 9 / 19;
         }
         .rv-top-head {
           position: relative;
@@ -1042,7 +1043,7 @@ class WitHaLovelaceCard extends HTMLElement {
           grid-template-columns: 1fr 1fr;
           align-items: center;
           gap: 8px;
-          margin-bottom: 10px;
+          margin-bottom: 46px;
           min-height: 32px;
         }
         .head-value {
@@ -1059,10 +1060,14 @@ class WitHaLovelaceCard extends HTMLElement {
         .head-value.right { grid-column: 2; text-align: right; justify-self: end; }
         .head-value.left { grid-column: 1; text-align: left; justify-self: start; }
         .head-icon { margin-right: 3px; }
+        .head-icon svg {
+          width: 1em;
+          height: 1em;
+          display: block;
+        }
         .temp .head-icon {
-          display: inline-block;
-          transform: rotate(18deg);
-          transform-origin: 50% 55%;
+          display: inline-flex;
+          vertical-align: -0.08em;
         }
         .rv-title {
           position: absolute;
@@ -1231,27 +1236,33 @@ class WitHaLovelaceCard extends HTMLElement {
           line-height: 1.2;
         }
         .sensor-axes-badge {
-          margin: 4px auto 0;
-          width: 64px;
-          height: 64px;
+          width: 46px;
+          height: 46px;
           opacity: 0.92;
+          pointer-events: none;
         }
         .sensor-axes-badge svg {
           width: 100%;
           height: 100%;
           display: block;
         }
+        .sensor-axes-badge.head-axes {
+          position: absolute;
+          right: 0;
+          top: calc(100% - 4px);
+        }
       </style>
       <ha-card>
         <div class="wrapper rv-top">
           <div class="rv-top-head">
             <div class="head-value left clickable temp" data-entity-key="temperature">
-              <span class="head-icon">\u{1F321}</span><span class="head-text"></span>
+              <span class="head-icon temp-icon">${this._buildThermometerIconSvg()}</span><span class="head-text"></span>
             </div>
             <div class="rv-title"></div>
             <div class="head-value right clickable batt" data-entity-key="battery_soc">
               <span class="head-icon">\u{1F50B}</span><span class="head-text"></span>
             </div>
+            <div class="sensor-axes-badge head-axes">${this._buildSensorAxesSvg()}</div>
           </div>
           <div class="rv-top-body">
             <div class="rv-svg-container">${this._buildRvTopSvg()}</div>
@@ -1296,7 +1307,6 @@ class WitHaLovelaceCard extends HTMLElement {
             </div>
           </div>
           <div class="rv-top-status"></div>
-          <div class="sensor-axes-badge">${this._buildSensorAxesSvg()}</div>
         </div>
       </ha-card>
     `;
@@ -1375,6 +1385,16 @@ class WitHaLovelaceCard extends HTMLElement {
         <circle cx="50" cy="50" r="49.5" fill="${ringBg}" stroke="#222938" stroke-width="0.9" />
         ${ticks.join("")}
         ${labels.join("")}
+      </svg>
+    `;
+  }
+
+  _buildThermometerIconSvg() {
+    return `
+      <svg viewBox="0 0 20 20" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8.2" y="2.1" width="3.6" height="10.4" rx="1.8" fill="none" stroke="#222" stroke-width="1.5"/>
+        <circle cx="10" cy="14.8" r="3.2" fill="#ef3e35" stroke="#222" stroke-width="1.2"/>
+        <rect x="9.2" y="6.4" width="1.6" height="6.8" rx="0.8" fill="#ef3e35"/>
       </svg>
     `;
   }
@@ -1517,7 +1537,7 @@ class WitHaLovelaceCard extends HTMLElement {
           padding: 12px 10px 10px;
           box-sizing: border-box;
           overflow: hidden;
-          aspect-ratio: 5 / 6;
+          aspect-ratio: 9 / 19;
           display: flex;
           flex-direction: column;
         }
@@ -1545,7 +1565,7 @@ class WitHaLovelaceCard extends HTMLElement {
           grid-template-columns: 1fr 1fr;
           align-items: center;
           gap: 8px;
-          margin-bottom: 6px;
+          margin-bottom: 44px;
           min-height: 32px;
         }
         .head-value {
@@ -1571,10 +1591,14 @@ class WitHaLovelaceCard extends HTMLElement {
           justify-self: start;
         }
         .head-icon { margin-right: 3px; }
+        .head-icon svg {
+          width: 1em;
+          height: 1em;
+          display: block;
+        }
         .temp .head-icon {
-          display: inline-block;
-          transform: rotate(18deg);
-          transform-origin: 50% 55%;
+          display: inline-flex;
+          vertical-align: -0.08em;
         }
         .title {
           position: absolute;
@@ -1712,15 +1736,20 @@ class WitHaLovelaceCard extends HTMLElement {
           line-height: 1.2;
         }
         .sensor-axes-badge {
-          margin: 6px auto 0;
-          width: 58px;
-          height: 58px;
+          width: 44px;
+          height: 44px;
           opacity: 0.9;
+          pointer-events: none;
         }
         .sensor-axes-badge svg {
           width: 100%;
           height: 100%;
           display: block;
+        }
+        .sensor-axes-badge.head-axes {
+          position: absolute;
+          right: 0;
+          top: calc(100% - 4px);
         }
         .corner-grid {
           margin-top: 6px;
@@ -1765,12 +1794,13 @@ class WitHaLovelaceCard extends HTMLElement {
           <img class="round-bg" alt="" />
           <div class="round-head">
             <div class="head-value left clickable temp" data-entity-key="temperature">
-              <span class="head-icon">\u{1F321}</span><span class="head-text"></span>
+              <span class="head-icon temp-icon">${this._buildThermometerIconSvg()}</span><span class="head-text"></span>
             </div>
             <div class="title"></div>
             <div class="head-value right clickable batt" data-entity-key="battery_soc">
               <span class="head-icon">\u{1F50B}</span><span class="head-text"></span>
             </div>
+            <div class="sensor-axes-badge head-axes">${this._buildSensorAxesSvg()}</div>
           </div>
           <div class="round-overlay">
           <div class="compass-wrapper">
@@ -1822,7 +1852,6 @@ class WitHaLovelaceCard extends HTMLElement {
             </div>
           </div>
           <div class="status-row compass-status"></div>
-          <div class="sensor-axes-badge">${this._buildSensorAxesSvg()}</div>
           </div>
         </div>
       </ha-card>

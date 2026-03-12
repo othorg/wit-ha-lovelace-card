@@ -9,6 +9,14 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.9] - 2026-03-12
+
+### Changed
+- Replaced thermometer emoji with a dedicated upright thermometer SVG icon in both views.
+- Repositioned the sensor orientation X/Y/Z badge to the header area below the battery value in both views.
+- Updated both viewports (`rv_top`, `round_compass`) to a unified `9/19` aspect ratio.
+- Updated card size calculation to follow the new `19:9` portrait height model.
+
 ## [0.3.8] - 2026-03-12
 
 ### Changed

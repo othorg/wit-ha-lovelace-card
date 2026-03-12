@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.3.10] - 2026-03-12
+
+### Changed
+- Updated both viewports (`rv_top`, `round_compass`) to an `1:1.414` aspect ratio.
+- Added new display option `Show X/Y/Z orientation` (`show_sensor_axes`) in the editor and rendering logic for both views.
+- `round_compass` layout reworked:
+  - compass centered in the middle area
+  - angle/corner/status block aligned to the bottom
+  - temperature/battery plus X/Y/Z orientation remain in the top header area.
+- Fixed `rv_top` corner toggle behavior:
+  - disabling corner values now always hides symbols (green points/red arrows) and values together.
+
 ## [0.3.9] - 2026-03-12
 
 ### Changed

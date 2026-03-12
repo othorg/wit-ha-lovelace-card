@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.3.9";
+const CARD_VERSION = "0.3.10";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -18,6 +18,7 @@ const DEFAULT_DISPLAY = {
   text_size_mode: "auto",
   show_temperature: true,
   show_battery: true,
+  show_sensor_axes: true,
   show_angle_panel: true,
   show_corner_values: true,
   show_compass_ring: true,
@@ -112,6 +113,7 @@ const I18N = {
     text_size_large: "Gross",
     show_temperature: "Temperatur anzeigen",
     show_battery: "Batterie anzeigen",
+    show_sensor_axes: "X/Y/Z Ausrichtung anzeigen",
     show_angle_panel: "AngleX/Y/Z anzeigen",
     show_corner_values: "Nivellierpunkte anzeigen",
     show_compass_ring: "Kompassring anzeigen",
@@ -183,6 +185,7 @@ const I18N = {
     text_size_large: "Large",
     show_temperature: "Show temperature",
     show_battery: "Show battery",
+    show_sensor_axes: "Show X/Y/Z orientation",
     show_angle_panel: "Show AngleX/Y/Z",
     show_corner_values: "Show leveling points",
     show_compass_ring: "Show compass ring",
@@ -379,6 +382,7 @@ function normalizeConfig(config) {
   normalized.display.text_size_mode = normalizeTextSizeMode(normalized.display.text_size_mode);
   normalized.display.show_temperature = Boolean(normalized.display.show_temperature);
   normalized.display.show_battery = Boolean(normalized.display.show_battery);
+  normalized.display.show_sensor_axes = Boolean(normalized.display.show_sensor_axes);
   normalized.display.show_angle_panel = Boolean(normalized.display.show_angle_panel);
   normalized.display.show_corner_values = Boolean(normalized.display.show_corner_values);
   normalized.display.show_compass_ring = Boolean(normalized.display.show_compass_ring);
@@ -730,7 +734,7 @@ class WitHaLovelaceCard extends HTMLElement {
   getCardSize() {
     const width = this.offsetWidth || this.getBoundingClientRect().width || 0;
     if (!width) return 8;
-    const bodyHeight = (width * 19) / 9;
+    const bodyHeight = width * 1.414;
     const headerHeight = 56;
     return Math.max(8, Math.ceil((bodyHeight + headerHeight) / 50));
   }
@@ -1035,7 +1039,7 @@ class WitHaLovelaceCard extends HTMLElement {
           padding: 12px 10px 10px;
           box-sizing: border-box;
           overflow: hidden;
-          aspect-ratio: 9 / 19;
+          aspect-ratio: 1 / 1.414;
         }
         .rv-top-head {
           position: relative;
@@ -1331,6 +1335,7 @@ class WitHaLovelaceCard extends HTMLElement {
       wheelValFR: this.shadowRoot.querySelector(".wheel-indicator.fr .wheel-value"),
       wheelValRL: this.shadowRoot.querySelector(".wheel-indicator.rl .wheel-value"),
       wheelValRR: this.shadowRoot.querySelector(".wheel-indicator.rr .wheel-value"),
+      sensorAxes: this.shadowRoot.querySelector(".rv-top-head .sensor-axes-badge.head-axes"),
       miniRingRotor: this.shadowRoot.querySelector(".mini-ring-rotor"),
       miniCompassIndex: this.shadowRoot.querySelector(".mini-compass-index"),
       miniLevelCircle: this.shadowRoot.querySelector(".mini-level-circle"),
@@ -1537,7 +1542,7 @@ class WitHaLovelaceCard extends HTMLElement {
           padding: 12px 10px 10px;
           box-sizing: border-box;
           overflow: hidden;
-          aspect-ratio: 9 / 19;
+          aspect-ratio: 1 / 1.414;
           display: flex;
           flex-direction: column;
         }
@@ -1556,8 +1561,18 @@ class WitHaLovelaceCard extends HTMLElement {
           transform-origin: 50% 50%;
           flex: 1;
           min-height: 0;
+          display: grid;
+          grid-template-rows: 1fr auto;
+          gap: 6px;
+        }
+        .round-middle {
+          min-height: 0;
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+        .round-bottom {
+          align-self: end;
         }
         .round-head {
           position: relative;
@@ -1803,18 +1818,21 @@ class WitHaLovelaceCard extends HTMLElement {
             <div class="sensor-axes-badge head-axes">${this._buildSensorAxesSvg()}</div>
           </div>
           <div class="round-overlay">
-          <div class="compass-wrapper">
-            <div class="ring-rotor">${this._buildCompassRingSvg()}</div>
-            <div class="compass-index"></div>
-            <div class="level-circle">
-              <div class="level-ring r1"></div>
-              <div class="level-ring r2"></div>
-              <div class="level-ring r3"></div>
-              <div class="cross v"></div>
-              <div class="cross h"></div>
-              <div class="dot"></div>
+          <div class="round-middle">
+            <div class="compass-wrapper">
+              <div class="ring-rotor">${this._buildCompassRingSvg()}</div>
+              <div class="compass-index"></div>
+              <div class="level-circle">
+                <div class="level-ring r1"></div>
+                <div class="level-ring r2"></div>
+                <div class="level-ring r3"></div>
+                <div class="cross v"></div>
+                <div class="cross h"></div>
+                <div class="dot"></div>
+              </div>
             </div>
           </div>
+          <div class="round-bottom">
           <div class="value-panel">
             <div class="value-row clickable" data-entity-key="pitch">
               <span class="value-label angle-x-label"></span>
@@ -1853,6 +1871,7 @@ class WitHaLovelaceCard extends HTMLElement {
           </div>
           <div class="status-row compass-status"></div>
           </div>
+          </div>
         </div>
       </ha-card>
     `;
@@ -1868,6 +1887,7 @@ class WitHaLovelaceCard extends HTMLElement {
       batt: this.shadowRoot.querySelector(".batt"),
       battText: this.shadowRoot.querySelector(".batt .head-text"),
       title: this.shadowRoot.querySelector(".title"),
+      sensorAxes: this.shadowRoot.querySelector(".round-head .sensor-axes-badge.head-axes"),
       ringRotor: this.shadowRoot.querySelector(".ring-rotor"),
       compassIndex: this.shadowRoot.querySelector(".compass-index"),
       levelCircle: this.shadowRoot.querySelector(".level-circle"),
@@ -1952,15 +1972,25 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.batt.style.fontSize = `${infoPx}px`;
     this._nodes.temp.style.color = textColor;
     this._nodes.batt.style.color = textColor;
+    if (this._nodes.sensorAxes) {
+      this._nodes.sensorAxes.hidden = !this._config.display.show_sensor_axes;
+      this._nodes.sensorAxes.style.display = this._config.display.show_sensor_axes ? "block" : "none";
+    }
 
     const showCorners = this._config.display.show_corner_values;
     const applyWheel = (dotNode, valNode, corner) => {
-      dotNode.parentElement.hidden = !showCorners;
+      const indicatorNode = dotNode.parentElement;
+      indicatorNode.hidden = !showCorners;
+      indicatorNode.style.display = showCorners ? "flex" : "none";
       if (!showCorners) {
+        dotNode.hidden = true;
+        dotNode.style.display = "none";
         valNode.hidden = true;
         valNode.style.display = "none";
         return;
       }
+      dotNode.hidden = false;
+      dotNode.style.display = "block";
       const needsRaise = shouldShowRaiseValue(corner);
       dotNode.classList.toggle("needs-raise", needsRaise);
       dotNode.style.background = needsRaise ? raiseColor : levelOkColor;
@@ -2083,6 +2113,10 @@ class WitHaLovelaceCard extends HTMLElement {
     this._nodes.batt.style.fontSize = `${infoPx}px`;
     this._nodes.temp.style.color = textColor;
     this._nodes.batt.style.color = textColor;
+    if (this._nodes.sensorAxes) {
+      this._nodes.sensorAxes.hidden = !this._config.display.show_sensor_axes;
+      this._nodes.sensorAxes.style.display = this._config.display.show_sensor_axes ? "block" : "none";
+    }
     this._nodes.ringRotor.hidden = !this._config.display.show_compass_ring;
     this._nodes.compassIndex.hidden = !this._config.display.show_compass_ring;
     const roundBgUrl = String(this._config.image || "").trim();
@@ -2541,6 +2575,7 @@ class WitHaLovelaceCardEditor extends HTMLElement {
           </div>
           <label class="check"><input id="show_temperature" data-group="display" type="checkbox" ${c.display.show_temperature ? "checked" : ""} /> ${escapeHtml(this._t("show_temperature"))}</label>
           <label class="check"><input id="show_battery" data-group="display" type="checkbox" ${c.display.show_battery ? "checked" : ""} /> ${escapeHtml(this._t("show_battery"))}</label>
+          <label class="check"><input id="show_sensor_axes" data-group="display" type="checkbox" ${c.display.show_sensor_axes ? "checked" : ""} /> ${escapeHtml(this._t("show_sensor_axes"))}</label>
           <label class="check"><input id="show_angle_panel" data-group="display" type="checkbox" ${c.display.show_angle_panel ? "checked" : ""} /> ${escapeHtml(this._t("show_angle_panel"))}</label>
           <label class="check"><input id="show_corner_values" data-group="display" type="checkbox" ${c.display.show_corner_values ? "checked" : ""} /> ${escapeHtml(this._t("show_corner_values"))}</label>
           <label class="check"><input id="show_compass_ring" data-group="display" type="checkbox" ${c.display.show_compass_ring ? "checked" : ""} /> ${escapeHtml(this._t("show_compass_ring"))}</label>

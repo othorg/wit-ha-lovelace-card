@@ -9,6 +9,13 @@ All notable changes to this project are documented in this file and in GitHub Re
 ### Changed
 - No changes yet.
 
+## [0.4.9] - 2026-03-13
+
+### Fixed
+- `rv_top`: leveling marker/value alignment stabilized by reserving value line height even when no raise value is shown.
+- This keeps green dots and red arrows on the same guide row across all four corners.
+
+
 ## [0.4.8] - 2026-03-13
 
 ### Fixed

@@ -1,6 +1,6 @@
 const CARD_TYPE = "rv-ha-lovelace-card";
 const CARD_NAME = "RV Level Lovelace Card";
-const CARD_VERSION = "0.4.8";
+const CARD_VERSION = "0.4.9";
 
 const DEFAULT_GEOMETRY = {
   wheelbase_mm: 2000,
@@ -1248,6 +1248,9 @@ class WitHaLovelaceCard extends HTMLElement {
           font-weight: 500;
           white-space: nowrap;
           text-align: center;
+          line-height: 1.1;
+          min-height: 1.1em;
+          display: block;
         }
         .mini-compass {
           position: absolute;
@@ -2157,9 +2160,10 @@ class WitHaLovelaceCard extends HTMLElement {
       dotNode.classList.toggle("needs-raise", needsRaise);
       dotNode.style.background = needsRaise ? raiseColor : levelOkColor;
       const value = corner.raise === null ? 0 : corner.raise;
-      valNode.hidden = !needsRaise;
-      valNode.style.display = needsRaise ? "" : "none";
-      valNode.textContent = needsRaise ? `${fmtOne(value)} ${this._t("unit_cm")}` : "";
+      valNode.hidden = false;
+      valNode.style.display = "block";
+      valNode.style.visibility = needsRaise ? "visible" : "hidden";
+      valNode.textContent = needsRaise ? `${fmtOne(value)} ${this._t("unit_cm")}` : "\u00A0";
       valNode.style.fontSize = `${wheelValuePx}px`;
       valNode.style.color = textColor;
     };
